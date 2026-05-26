@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Artwork Extractor for Genius",
   "version": "0.7.0",
-  "description": "Copy the artwork URL to the clipboard for genius.com by clicking the copy button on Apple Music, Deezer, Spotify, and more.",
+  "description": "Extract high-quality music artwork from Spotify, Apple Music, Tidal, Deezer, SoundCloud, Bandcamp, YouTube Music, Yandex Music, and more. Support for downloading, copying URLs, and cloud hosting.",
   "permissions": [
     "activeTab",
     "clipboardWrite",

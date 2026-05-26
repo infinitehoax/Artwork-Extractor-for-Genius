@@ -43,7 +43,8 @@ It's primarily built to quickly grab cover artwork URLs (and optionally convert/
 
 ### 🎵 Features
 
-- Adds UI buttons on supported sites (see below) with four output modes: **Copy URL** · **Download file** · **Convert to PNG** · **Host image** (ImgBB / ImageKit / Genius S3)
+- **Four output modes per site:** Copy URL · Download file · Convert to PNG · Host image (ImgBB / ImageKit / Genius S3)
+- Adds UI buttons on supported sites (see below):
   - Genius: `genius.com` (+ `genius-staging.com`)
   - Apple Music: `*.apple.com`
   - Spotify: `*.spotify.com`
@@ -84,13 +85,13 @@ This extension supports multiple “outputs” when you click Copy/Save:
 
 If you enable ImgBB hosting, you must provide an ImgBB API key:
 
-- Set it in the settings page (stored in browser cache).
+- Set it in the settings page (stored in `chrome.storage.local`).
 
 #### ImageKit
 
-If you enable ImageKit hosting, provide your ImageKit private key:
+If you enable ImageKit hosting, provide your ImageKit private key (`IMAGEKIT_PRIVATE_KEY`) and public key (`IMAGEKIT_PUBLIC_KEY`):
 
-- Set `IMAGEKIT_PRIVATE_KEY` in the settings page (stored in browser cache).
+- Set them in the settings page (stored in `chrome.storage.local`).
 
 #### Genius / Filestack (Genius S3)
 
@@ -111,7 +112,8 @@ For local development, you will need to populate them.
 
 ## 📖 Usage & General Information
 
-> **Note:** Most supported sites are single-page applications (SPAs). If injected buttons don't appear, **reload the tab** after enabling the site in the popup.
+> **Note:** Most supported sites (Spotify, Tidal, YouTube Music, etc.) are single-page apps.
+> If the injected buttons don't appear, **reload the tab** after enabling the site in the popup.
 
 1. Navigate to a supported site (e.g. Spotify album page, Genius song page).
 2. Click the extension icon to open the popup.
