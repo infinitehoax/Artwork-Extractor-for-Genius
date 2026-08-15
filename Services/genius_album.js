@@ -6830,8 +6830,7 @@ chrome.storage.local.get([
                     return { id: exactMatch.id, name: exactMatch.name };
                 }
 
-                const lastResult = results[results.length - 1];
-                return { id: lastResult.id, name: lastResult.name };
+                return { id: Date.now(), name: queryString };
             }
 
             async function resolveRoleQuery(query) {
@@ -6853,8 +6852,7 @@ chrome.storage.local.get([
                     return { id: exactMatch.id, label: exactMatch.label || exactMatch.name };
                 }
 
-                const lastResult = results[results.length - 1];
-                return { id: lastResult.id, label: lastResult.label || lastResult.name };
+                return { id: queryString.toLowerCase().replace(/[^a-z0-9]/g, '_'), label: queryString };
             }
 
             async function resolveTagQuery(query) {
