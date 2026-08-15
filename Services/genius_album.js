@@ -3512,6 +3512,7 @@ chrome.storage.local.get([
 
                 const inputField = document.createElement('input');
                 inputField.type = 'text';
+                inputField.name = name;
                 inputField.placeholder = `Add ${labelText}`;
                 inputField.className = 'input ng-pristine ng-valid ng-empty ng-touched';
                 inputField.setAttribute('autocomplete', 'off');
@@ -4943,9 +4944,9 @@ chrome.storage.local.get([
                         color: "white",
                         padding: "0.5rem 1rem",
                         zIndex: "9",
-                        display: "grid",
-                        gridTemplateColumns: "25px 350px auto 350px 25px",
-                        placeItems: "center"
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between"
                     });
 
                     function createArrow(pathD) {
@@ -4982,13 +4983,23 @@ chrome.storage.local.get([
                     const leftArrow = createArrow("M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z");
                     const rightArrow = createArrow("M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z");
 
-                    const divider = document.createElement("div");
-                    Object.assign(divider.style, {
-                        width: "2px",
-                        height: "1.25rem",
-                        background: "white",
-                        opacity: "0.6"
+                    const tabsContainer = document.createElement("div");
+                    Object.assign(tabsContainer.style, {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "1.25rem"
                     });
+
+                    function createDivider() {
+                        const divider = document.createElement("div");
+                        Object.assign(divider.style, {
+                            width: "2px",
+                            height: "1.25rem",
+                            background: "white",
+                            opacity: "0.6"
+                        });
+                        return divider;
+                    }
 
                     const tabMain = document.createElement("div");
                     tabMain.textContent = "Main Credits";
@@ -5004,27 +5015,38 @@ chrome.storage.local.get([
                         cursor: "pointer"
                     });
 
+                    const tabAdvanced = document.createElement("div");
+                    tabAdvanced.textContent = "Advanced";
+                    Object.assign(tabAdvanced.style, {
+                        padding: "0.25rem 0.5rem",
+                        cursor: "pointer"
+                    });
+
+                    tabsContainer.appendChild(tabMain);
+                    tabsContainer.appendChild(createDivider());
+                    tabsContainer.appendChild(tabAdditional);
+                    tabsContainer.appendChild(createDivider());
+                    tabsContainer.appendChild(tabAdvanced);
+
                     navbar.appendChild(leftArrow);
-                    navbar.appendChild(tabMain);
-                    navbar.appendChild(divider);
-                    navbar.appendChild(tabAdditional);
+                    navbar.appendChild(tabsContainer);
                     navbar.appendChild(rightArrow);
 
                     form.appendChild(navbar);
-                    return { leftArrow, rightArrow, tabMain, tabAdditional };
+                    return { leftArrow, rightArrow, tabMain, tabAdditional, tabAdvanced };
                 }
 
                 function createPages(form) {
                     const contentWrapper = document.createElement("div");
                     Object.assign(contentWrapper.style, {
                         display: "flex",
-                        width: "200%",
+                        width: "300%",
                         transition: "transform 0.25s ease",
                         overflowY: "hidden"
                     });
 
                     const pageStyle = {
-                        width: "50%",
+                        width: "33.333%",
                         padding: "2.25rem",
                         boxSizing: "border-box",
                         overflowY: "auto"
@@ -5034,12 +5056,15 @@ chrome.storage.local.get([
                     Object.assign(page1.style, pageStyle);
                     const page2 = document.createElement("div");
                     Object.assign(page2.style, pageStyle);
+                    const page3 = document.createElement("div");
+                    Object.assign(page3.style, pageStyle);
 
                     contentWrapper.appendChild(page1);
                     contentWrapper.appendChild(page2);
+                    contentWrapper.appendChild(page3);
 
                     form.appendChild(contentWrapper);
-                    return { contentWrapper, page1, page2 };
+                    return { contentWrapper, page1, page2, page3 };
                 }
 
                 function createStatus(form) {
@@ -5054,29 +5079,59 @@ chrome.storage.local.get([
                     return { status };
                 }
 
+                let currentTab = "main";
+                const tabOrder = ["main", "additional", "advanced"];
+
                 function activate(tab) {
+                    currentTab = tab;
+                    if (tab === "main") {
+                        contentWrapper.style.transform = "translateX(0%)";
+                    } else if (tab === "additional") {
+                        contentWrapper.style.transform = "translateX(-33.333%)";
+                    } else if (tab === "advanced") {
+                        contentWrapper.style.transform = "translateX(-66.666%)";
+                    }
+
                     const isMain = tab === "main";
-                    contentWrapper.style.transform = isMain ? "translateX(0%)" : "translateX(-50%)";
+                    const isAdditional = tab === "additional";
+                    const isAdvanced = tab === "advanced";
+
                     tabMain.style.borderBottom = isMain ? "2px solid white" : "none";
-                    tabAdditional.style.borderBottom = isMain ? "none" : "2px solid white";
                     tabMain.style.opacity = isMain ? "1" : "0.6";
-                    tabAdditional.style.opacity = isMain ? "0.6" : "1";
+
+                    tabAdditional.style.borderBottom = isAdditional ? "2px solid white" : "none";
+                    tabAdditional.style.opacity = isAdditional ? "1" : "0.6";
+
+                    tabAdvanced.style.borderBottom = isAdvanced ? "2px solid white" : "none";
+                    tabAdvanced.style.opacity = isAdvanced ? "1" : "0.6";
+
                     leftArrow.style.opacity = isMain ? "0.4" : "1";
-                    rightArrow.style.opacity = isMain ? "1" : "0.4";
+                    rightArrow.style.opacity = isAdvanced ? "0.4" : "1";
                 }
 
-                const { leftArrow, rightArrow, tabMain, tabAdditional } = createNavbar(form);
-                const { contentWrapper, page1, page2 } = createPages(form);
+                function navPrevious() {
+                    const idx = tabOrder.indexOf(currentTab);
+                    if (idx > 0) activate(tabOrder[idx - 1]);
+                }
+
+                function navNext() {
+                    const idx = tabOrder.indexOf(currentTab);
+                    if (idx < tabOrder.length - 1) activate(tabOrder[idx + 1]);
+                }
+
+                const { leftArrow, rightArrow, tabMain, tabAdditional, tabAdvanced } = createNavbar(form);
+                const { contentWrapper, page1, page2, page3 } = createPages(form);
                 const { status } = createStatus(form);
 
                 tabMain.addEventListener("click", () => activate("main"));
                 tabAdditional.addEventListener("click", () => activate("additional"));
-                leftArrow.addEventListener("click", () => activate("main"));
-                rightArrow.addEventListener("click", () => activate("additional"));
+                tabAdvanced.addEventListener("click", () => activate("advanced"));
+                leftArrow.addEventListener("click", () => navPrevious());
+                rightArrow.addEventListener("click", () => navNext());
 
                 activate("main");
 
-                return { page1, page2, status };
+                return { page1, page2, page3, status };
             }
 
             function createTracklist(songIds, trackNumbers, rawTrackNumbers, isPage2) {
@@ -6740,6 +6795,210 @@ chrome.storage.local.get([
                 return tracklist1
             }
 
+            async function resolveArtistQuery(query) {
+                if (!query) return null;
+                if (typeof query === 'object' && query.id && (query.name || query.label)) {
+                    return { id: query.id, name: query.name || query.label };
+                }
+
+                const queryString = String(query).trim();
+                if (!queryString) return null;
+
+                const results = await fetchSuggestions('artists', queryString);
+                if (!results || results.length === 0) {
+                    return { id: Date.now(), name: queryString };
+                }
+
+                const exactMatch = results.find(a => a.name && a.name.toLowerCase() === queryString.toLowerCase());
+                if (exactMatch) {
+                    return { id: exactMatch.id, name: exactMatch.name };
+                }
+
+                const lastResult = results[results.length - 1];
+                return { id: lastResult.id, name: lastResult.name };
+            }
+
+            async function resolveRoleQuery(query) {
+                if (!query) return null;
+                if (typeof query === 'object' && query.id && (query.label || query.name)) {
+                    return { id: query.id, label: query.label || query.name };
+                }
+
+                const queryString = String(query).trim();
+                if (!queryString) return null;
+
+                const results = await fetchSuggestions('custom_performance_roles', queryString);
+                if (!results || results.length === 0) {
+                    return { id: queryString.toLowerCase().replace(/[^a-z0-9]/g, '_'), label: queryString };
+                }
+
+                const exactMatch = results.find(r => (r.label && r.label.toLowerCase() === queryString.toLowerCase()) || (r.name && r.name.toLowerCase() === queryString.toLowerCase()));
+                if (exactMatch) {
+                    return { id: exactMatch.id, label: exactMatch.label || exactMatch.name };
+                }
+
+                const lastResult = results[results.length - 1];
+                return { id: lastResult.id, label: lastResult.label || lastResult.name };
+            }
+
+            async function processAndImportJsonCredits(data, creditsState, songIds, rawTrackNumbers, trackNumbers) {
+                if (!data || typeof data !== 'object') {
+                    throw new Error('Invalid JSON format: expected an object.');
+                }
+
+                function clearTagListDOM(fieldName) {
+                    const inputs = document.querySelectorAll(`input[name="${fieldName}"]`);
+                    inputs.forEach(input => {
+                        const wrapper = input.closest('div');
+                        if (wrapper) {
+                            const tagsList = wrapper.querySelector('div');
+                            if (tagsList) {
+                                const tags = tagsList.querySelectorAll('.tag-item, li');
+                                tags.forEach(t => t.remove());
+                            }
+                        }
+                    });
+                }
+
+                function renderTagsForField(array, fieldName) {
+                    clearTagListDOM(fieldName);
+                    const inputs = document.querySelectorAll(`input[name="${fieldName}"]`);
+                    inputs.forEach(input => {
+                        const wrapper = input.closest('div');
+                        const tagsList = wrapper ? wrapper.querySelector('div') : null;
+                        if (tagsList) {
+                            array.forEach(item => {
+                                if (typeof addTag === 'function') {
+                                    addTag(tagsList, item, fieldName);
+                                }
+                            });
+                        }
+                    });
+                }
+
+                if (Array.isArray(data.primary_artists)) {
+                    creditsState.primaryArtistsArray = [];
+                    for (const item of data.primary_artists) {
+                        const resolved = await resolveArtistQuery(item);
+                        if (resolved && !creditsState.primaryArtistsArray.some(a => a.id === resolved.id)) {
+                            creditsState.primaryArtistsArray.push(resolved);
+                        }
+                    }
+                    renderTagsForField(creditsState.primaryArtistsArray, 'primary_artists');
+                }
+
+                if (Array.isArray(data.featured_artists)) {
+                    creditsState.featuredArtistsArray = [];
+                    for (const item of data.featured_artists) {
+                        const resolved = await resolveArtistQuery(item);
+                        if (resolved && !creditsState.featuredArtistsArray.some(a => a.id === resolved.id)) {
+                            creditsState.featuredArtistsArray.push(resolved);
+                        }
+                    }
+                    renderTagsForField(creditsState.featuredArtistsArray, 'featured_artists');
+                }
+
+                if (Array.isArray(data.producers)) {
+                    creditsState.producersArray = [];
+                    for (const item of data.producers) {
+                        const resolved = await resolveArtistQuery(item);
+                        if (resolved && !creditsState.producersArray.some(a => a.id === resolved.id)) {
+                            creditsState.producersArray.push(resolved);
+                        }
+                    }
+                    renderTagsForField(creditsState.producersArray, 'producers');
+                }
+
+                if (Array.isArray(data.writers)) {
+                    creditsState.writersArray = [];
+                    for (const item of data.writers) {
+                        const resolved = await resolveArtistQuery(item);
+                        if (resolved && !creditsState.writersArray.some(a => a.id === resolved.id)) {
+                            creditsState.writersArray.push(resolved);
+                        }
+                    }
+                    renderTagsForField(creditsState.writersArray, 'writers');
+                }
+
+                if (Array.isArray(data.tags)) {
+                    creditsState.secondaryTagsArray = [];
+                    for (const item of data.tags) {
+                        if (typeof item === 'string') {
+                            creditsState.secondaryTagsArray.push({ id: item.toLowerCase().replace(/\s+/g, '-'), name: item });
+                        } else if (item && item.name) {
+                            creditsState.secondaryTagsArray.push(item);
+                        }
+                    }
+                    renderTagsForField(creditsState.secondaryTagsArray, 'tags');
+                }
+
+                const rawAdditional = data.additional_credits || data.custom_performances || data.credits;
+                if (Array.isArray(rawAdditional)) {
+                    for (const creditGroup of rawAdditional) {
+                        const roleQuery = creditGroup.role || creditGroup.label;
+                        const artistsQueries = creditGroup.artists || creditGroup.artist;
+
+                        if (!roleQuery) continue;
+
+                        const resolvedRole = await resolveRoleQuery(roleQuery);
+                        if (!resolvedRole) continue;
+
+                        const resolvedArtists = [];
+                        if (Array.isArray(artistsQueries)) {
+                            for (const q of artistsQueries) {
+                                const res = await resolveArtistQuery(q);
+                                if (res && !resolvedArtists.some(a => a.id === res.id)) {
+                                    resolvedArtists.push(res);
+                                }
+                            }
+                        } else if (artistsQueries) {
+                            const res = await resolveArtistQuery(artistsQueries);
+                            if (res) resolvedArtists.push(res);
+                        }
+
+                        let subSection = document.querySelector(`[data-index="${creditsState.roleIndex}"]`);
+                        if (!subSection) {
+                            const subSectionCreditsContainer = document.querySelector('.sub_section_credits_container') || document.querySelector('form');
+                            subSection = createAdditionalRoles();
+                            if (subSectionCreditsContainer && subSectionCreditsContainer.contains(subSection) === false) {
+                                const btn = subSectionCreditsContainer.querySelector('span');
+                                if (btn) {
+                                    subSectionCreditsContainer.insertBefore(subSection, btn);
+                                } else {
+                                    subSectionCreditsContainer.appendChild(subSection);
+                                }
+                            }
+                        }
+
+                        const currentRoleIdx = creditsState.roleIndex - 1;
+
+                        creditsState.additionalRolesArray[currentRoleIdx] = [resolvedRole];
+                        creditsState.artistRolesArray[currentRoleIdx] = resolvedArtists;
+                        if (!creditsState.additionalCreditsArray.includes(currentRoleIdx)) {
+                            creditsState.additionalCreditsArray.push(currentRoleIdx);
+                        }
+
+                        const roleInputs = document.querySelectorAll(`input[name="additional_role_${currentRoleIdx}"]`);
+                        roleInputs.forEach(input => {
+                            const wrapper = input.closest('div');
+                            const tagsList = wrapper ? wrapper.querySelector('div') : null;
+                            if (tagsList && typeof addTag === 'function') {
+                                addTag(tagsList, resolvedRole, `additional_role_${currentRoleIdx}`);
+                            }
+                        });
+
+                        const artistInputs = document.querySelectorAll(`input[name="artist_role_${currentRoleIdx}"]`);
+                        artistInputs.forEach(input => {
+                            const wrapper = input.closest('div');
+                            const tagsList = wrapper ? wrapper.querySelector('div') : null;
+                            if (tagsList && typeof addTag === 'function') {
+                                resolvedArtists.forEach(art => addTag(tagsList, art, `artist_role_${currentRoleIdx}`));
+                            }
+                        });
+                    }
+                }
+            }
+
             function createAdditionalCredits(page2, trackNumbers, rawTrackNumbers) {
                 const tracklist2 = createTracklist(songIds, trackNumbers, rawTrackNumbers, true);
 
@@ -6751,15 +7010,181 @@ chrome.storage.local.get([
                 return tracklist2
             }
 
+            function createAdvancedCredits(page3, trackNumbers, rawTrackNumbers) {
+                const tracklist3 = createTracklist(songIds, trackNumbers, rawTrackNumbers, false);
+
+                const container = document.createElement('div');
+                Object.assign(container.style, {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem',
+                    margin: '1.75rem 0rem'
+                });
+
+                const headerRow = document.createElement('div');
+                Object.assign(headerRow.style, {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                });
+
+                const label = document.createElement('div');
+                label.textContent = 'JSON Input (Main & Additional Credits)';
+                Object.assign(label.style, {
+                    fontWeight: '600',
+                    fontSize: '0.9rem',
+                    fontFamily: 'Programme, "Programme Pan", Arial, sans-serif'
+                });
+
+                const buttonGroup = document.createElement('div');
+                Object.assign(buttonGroup.style, {
+                    display: 'flex',
+                    gap: '0.5rem'
+                });
+
+                const loadCurrentBtn = document.createElement('button');
+                loadCurrentBtn.type = 'button';
+                loadCurrentBtn.textContent = 'Load Current';
+                Object.assign(loadCurrentBtn.style, {
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: '1.25rem',
+                    border: '1px solid rgb(0, 0, 0)',
+                    fontFamily: 'Programme, "Programme Pan", Arial, sans-serif',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    backgroundColor: '#fff'
+                });
+
+                const applyJsonBtn = document.createElement('button');
+                applyJsonBtn.type = 'button';
+                applyJsonBtn.textContent = 'Apply JSON';
+                Object.assign(applyJsonBtn.style, {
+                    padding: '0.35rem 0.85rem',
+                    borderRadius: '1.25rem',
+                    border: '1px solid rgb(0, 0, 0)',
+                    fontFamily: 'Programme, "Programme Pan", Arial, sans-serif',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    backgroundColor: 'black',
+                    color: 'white'
+                });
+
+                buttonGroup.appendChild(loadCurrentBtn);
+                buttonGroup.appendChild(applyJsonBtn);
+                headerRow.appendChild(label);
+                headerRow.appendChild(buttonGroup);
+
+                const textareaWrapper = document.createElement('div');
+                Object.assign(textareaWrapper.style, {
+                    border: '1px solid #000',
+                    padding: '4px',
+                    boxSizing: 'border-box'
+                });
+
+                const textarea = document.createElement('textarea');
+                textarea.id = 'advanced_credits_json';
+                textarea.placeholder = JSON.stringify({
+                    primary_artists: ['Artist Name'],
+                    featured_artists: ['Artist Name'],
+                    producers: ['Producer Name'],
+                    writers: ['Writer Name'],
+                    additional_credits: [{ role: 'Phonographic Copyright ℗', artists: ['Label or Artist Name'] }]
+                }, null, 2);
+                Object.assign(textarea.style, {
+                    width: '100%',
+                    height: '320px',
+                    fontFamily: 'monospace, monospace',
+                    fontSize: '0.85rem',
+                    padding: '8px',
+                    boxSizing: 'border-box',
+                    border: 'none',
+                    outline: 'none',
+                    resize: 'vertical',
+                    backgroundColor: 'inherit',
+                    color: '#000'
+                });
+
+                textareaWrapper.appendChild(textarea);
+
+                const feedback = document.createElement('div');
+                feedback.id = 'advanced_json_feedback';
+                Object.assign(feedback.style, {
+                    fontSize: '0.8rem',
+                    minHeight: '1.25rem',
+                    fontFamily: 'Programme, "Programme Pan", Arial, sans-serif'
+                });
+
+                container.appendChild(headerRow);
+                container.appendChild(textareaWrapper);
+                container.appendChild(feedback);
+
+                page3.appendChild(tracklist3);
+                page3.appendChild(container);
+
+                loadCurrentBtn.addEventListener('click', () => {
+                    const currentData = {
+                        primary_artists: creditsState.primaryArtistsArray.map(a => a.name || a.label),
+                        featured_artists: creditsState.featuredArtistsArray.map(a => a.name || a.label),
+                        producers: creditsState.producersArray.map(a => a.name || a.label),
+                        writers: creditsState.writersArray.map(a => a.name || a.label),
+                        tags: creditsState.secondaryTagsArray.map(t => t.name || t.label),
+                        additional_credits: creditsState.additionalCreditsArray.map(idx => {
+                            const roleObj = creditsState.additionalRolesArray[idx]?.[0];
+                            const artistsObjs = creditsState.artistRolesArray[idx] || [];
+                            return {
+                                role: roleObj ? (roleObj.label || roleObj.name) : '',
+                                artists: artistsObjs.map(a => a.name || a.label)
+                            };
+                        }).filter(item => item.role || item.artists.length > 0)
+                    };
+
+                    textarea.value = JSON.stringify(currentData, null, 2);
+                    feedback.style.color = '#007A33';
+                    feedback.textContent = 'Loaded current credits state into JSON.';
+                });
+
+                applyJsonBtn.addEventListener('click', async () => {
+                    const raw = textarea.value.trim();
+                    if (!raw) {
+                        feedback.style.color = '#FF1414';
+                        feedback.textContent = 'Please enter JSON data before applying.';
+                        return;
+                    }
+
+                    try {
+                        const parsed = JSON.parse(raw);
+                        applyJsonBtn.disabled = true;
+                        applyJsonBtn.textContent = 'Applying...';
+                        feedback.style.color = '#333';
+                        feedback.textContent = 'Processing artists and roles...';
+
+                        await processAndImportJsonCredits(parsed, creditsState, songIds, rawTrackNumbers, trackNumbers);
+
+                        feedback.style.color = '#007A33';
+                        feedback.textContent = 'Successfully applied JSON credits!';
+                    } catch (err) {
+                        feedback.style.color = '#FF1414';
+                        feedback.textContent = 'JSON Error: ' + err.message;
+                    } finally {
+                        applyJsonBtn.disabled = false;
+                        applyJsonBtn.textContent = 'Apply JSON';
+                    }
+                });
+
+                return tracklist3;
+            }
+
 
             const { overlay, form } = createForm();
             const { controls, saveButton, cancelButton } = createControls(overlay);
-            const { page1, page2, status } = createContent(form);
+            const { page1, page2, page3, status } = createContent(form);
 
             const tracklist1 = createMainCredits(page1, trackNumbers, rawTrackNumbers);
             const tracklist2 = createAdditionalCredits(page2, trackNumbers, rawTrackNumbers);
+            const tracklist3 = createAdvancedCredits(page3, trackNumbers, rawTrackNumbers);
 
             syncTracklists(tracklist1, tracklist2);
+            syncTracklists(tracklist1, tracklist3);
 
             const formWidth = observeFormWidth(form, controls);
 
