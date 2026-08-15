@@ -7004,6 +7004,43 @@ chrome.storage.local.get([
                         toggleButton.click();
                     }
 
+                    const targetSongIds = new Set();
+
+                    for (const trackData of tracksArray) {
+                        const trackNum = trackData.track ?? trackData.track_number ?? trackData.number;
+                        let targetSongId = null;
+
+                        if (trackNum !== undefined && trackNum !== null) {
+                            const trackNumStr = String(trackNum).trim();
+                            const foundIndex = rawTrackNumbers.findIndex((num, idx) =>
+                                String(num).trim() === trackNumStr || String(trackNumbers[idx]) === trackNumStr
+                            );
+                            if (foundIndex !== -1) {
+                                targetSongId = songIds[foundIndex];
+                            }
+                        }
+
+                        if (!targetSongId && trackData.song_id) {
+                            targetSongId = String(trackData.song_id);
+                        }
+
+                        if (!targetSongId && tracksArray.length === songIds.length) {
+                            const arrayIdx = tracksArray.indexOf(trackData);
+                            if (arrayIdx !== -1) targetSongId = songIds[arrayIdx];
+                        }
+
+                        if (targetSongId) {
+                            targetSongIds.add(String(targetSongId));
+                        }
+                    }
+
+                    songIds.forEach(id => {
+                        const cb = document.querySelector(`#checkbox_${id}`);
+                        if (cb) {
+                            cb.checked = targetSongIds.has(String(id));
+                        }
+                    });
+
                     for (const trackData of tracksArray) {
                         const trackNum = trackData.track ?? trackData.track_number ?? trackData.number;
                         let targetSongId = null;
