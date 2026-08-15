@@ -4044,7 +4044,8 @@ chrome.storage.local.get([
                 languageArray: [],
                 additionalCreditsArray: [],
                 additionalRolesArray: [],
-                artistRolesArray: []
+                artistRolesArray: [],
+                trackCreditsMap: {}
             };
 
             const optionSets = {
@@ -4225,6 +4226,13 @@ chrome.storage.local.get([
                 for (let i = 0; i < mainSongIds.length; i++) {
                     const songId = mainSongIds[i];
                     const existingSongData = songDataAlbum.find(song => Number(song.id) === Number(songId));
+                    const trackCredits = creditsState.trackCreditsMap?.[songId] || {};
+
+                    const songPrimaryArtists = (trackCredits.primaryArtistsArray !== undefined ? trackCredits.primaryArtistsArray : creditsState.primaryArtistsArray).map(a => ({ id: a.id, name: a.name }));
+                    const songFeaturedArtists = (trackCredits.featuredArtistsArray !== undefined ? trackCredits.featuredArtistsArray : creditsState.featuredArtistsArray).map(a => ({ id: a.id, name: a.name }));
+                    const songProducers = (trackCredits.producersArray !== undefined ? trackCredits.producersArray : creditsState.producersArray).map(a => ({ id: a.id, name: a.name }));
+                    const songWriters = (trackCredits.writersArray !== undefined ? trackCredits.writersArray : creditsState.writersArray).map(a => ({ id: a.id, name: a.name }));
+                    const songSecondaryTags = (trackCredits.secondaryTagsArray !== undefined ? trackCredits.secondaryTagsArray : creditsState.secondaryTagsArray).map(t => ({ id: t.id, name: t.name }));
 
                     const payload = await processMainPayload(
                         songId,
@@ -4232,13 +4240,13 @@ chrome.storage.local.get([
                         i + 1,
                         mainSongIds.length,
                         checkboxStates,
-                        primaryArtistsPayload,
-                        featuredArtistsPayload,
-                        producersPayload,
-                        writersPayload,
+                        songPrimaryArtists,
+                        songFeaturedArtists,
+                        songProducers,
+                        songWriters,
                         youtubePayload[i],
                         primaryTagPayload,
-                        secondaryTagsPayload,
+                        songSecondaryTags,
                         releaseDatePayload,
                         recordedPayload,
                         songRelationshipsPayload[i],
@@ -6914,34 +6922,13 @@ chrome.storage.local.get([
                     tracksArray = Object.entries(data.tracks).map(([key, val]) => ({ track: key, ...val }));
                 }
 
+                creditsState.trackCreditsMap = {};
+
                 let primaryArtistsSource = data.primary_artists;
                 let featuredArtistsSource = data.featured_artists;
                 let producersSource = data.producers;
                 let writersSource = data.writers;
                 let tagsSource = data.tags;
-
-                if (tracksArray) {
-                    if (!primaryArtistsSource) {
-                        const all = tracksArray.flatMap(t => t.primary_artists || []).filter(Boolean);
-                        if (all.length) primaryArtistsSource = [...new Set(all)];
-                    }
-                    if (!featuredArtistsSource) {
-                        const all = tracksArray.flatMap(t => t.featured_artists || []).filter(Boolean);
-                        if (all.length) featuredArtistsSource = [...new Set(all)];
-                    }
-                    if (!producersSource) {
-                        const all = tracksArray.flatMap(t => t.producers || []).filter(Boolean);
-                        if (all.length) producersSource = [...new Set(all)];
-                    }
-                    if (!writersSource) {
-                        const all = tracksArray.flatMap(t => t.writers || []).filter(Boolean);
-                        if (all.length) writersSource = [...new Set(all)];
-                    }
-                    if (!tagsSource) {
-                        const all = tracksArray.flatMap(t => t.tags || []).filter(Boolean);
-                        if (all.length) tagsSource = [...new Set(all)];
-                    }
-                }
 
                 if (Array.isArray(primaryArtistsSource)) {
                     creditsState.primaryArtistsArray = [];
@@ -7065,6 +7052,65 @@ chrome.storage.local.get([
                         }
 
                         if (!targetSongId) continue;
+
+                        if (!creditsState.trackCreditsMap[targetSongId]) {
+                            creditsState.trackCreditsMap[targetSongId] = {};
+                        }
+
+                        if (Array.isArray(trackData.primary_artists)) {
+                            const resolvedList = [];
+                            for (const item of trackData.primary_artists) {
+                                const resolved = await resolveArtistQuery(item);
+                                if (resolved && !resolvedList.some(a => a.id === resolved.id)) {
+                                    resolvedList.push(resolved);
+                                }
+                            }
+                            creditsState.trackCreditsMap[targetSongId].primaryArtistsArray = resolvedList;
+                        }
+
+                        if (Array.isArray(trackData.featured_artists)) {
+                            const resolvedList = [];
+                            for (const item of trackData.featured_artists) {
+                                const resolved = await resolveArtistQuery(item);
+                                if (resolved && !resolvedList.some(a => a.id === resolved.id)) {
+                                    resolvedList.push(resolved);
+                                }
+                            }
+                            creditsState.trackCreditsMap[targetSongId].featuredArtistsArray = resolvedList;
+                        }
+
+                        if (Array.isArray(trackData.producers)) {
+                            const resolvedList = [];
+                            for (const item of trackData.producers) {
+                                const resolved = await resolveArtistQuery(item);
+                                if (resolved && !resolvedList.some(a => a.id === resolved.id)) {
+                                    resolvedList.push(resolved);
+                                }
+                            }
+                            creditsState.trackCreditsMap[targetSongId].producersArray = resolvedList;
+                        }
+
+                        if (Array.isArray(trackData.writers)) {
+                            const resolvedList = [];
+                            for (const item of trackData.writers) {
+                                const resolved = await resolveArtistQuery(item);
+                                if (resolved && !resolvedList.some(a => a.id === resolved.id)) {
+                                    resolvedList.push(resolved);
+                                }
+                            }
+                            creditsState.trackCreditsMap[targetSongId].writersArray = resolvedList;
+                        }
+
+                        if (Array.isArray(trackData.tags)) {
+                            const resolvedList = [];
+                            for (const item of trackData.tags) {
+                                const resolved = await resolveTagQuery(item);
+                                if (resolved && !resolvedList.some(t => t.id === resolved.id)) {
+                                    resolvedList.push(resolved);
+                                }
+                            }
+                            creditsState.trackCreditsMap[targetSongId].secondaryTagsArray = resolvedList;
+                        }
 
                         const rawAdditional = trackData.additional_credits || trackData.custom_performances || trackData.credits;
                         if (Array.isArray(rawAdditional)) {
