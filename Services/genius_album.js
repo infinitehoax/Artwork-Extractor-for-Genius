@@ -2032,7 +2032,7 @@ chrome.storage.local.get([
                     currentIndex,
                     totalCount
                 ) {
-                    const existingSongData = existingSongsData.find(song => song.id === songId);
+                    const existingSongData = existingSongsData.find(song => Number(song.id) === Number(songId));
                     if (!existingSongData) return;
 
                     //statusDisplay.innerHTML = `Saving Track <strong>${currentIndex}</strong> of <strong>${totalCount}</strong>...`;
@@ -2335,7 +2335,7 @@ chrome.storage.local.get([
 
                     if (songRelationshipsPayload[songIndex] || checkboxStates.overwriteRelationship || checkboxStates.removeRelationship) {
                         if (checkboxStates.overwriteRelationship && songRelationshipsPayload[songIndex]) {
-                            const existingRelationships = existingSongsData.find(song => song.id === songIds[songIndex])?.existingSongRelationships || [];
+                            const existingRelationships = existingSongsData.find(song => Number(song.id) === Number(songIds[songIndex]))?.existingSongRelationships || [];
 
                             payload.song.song_relationships_by_id = existingRelationships.map(rel => ({
                                 song_ids: rel.songs?.map(song => song.id) || [],
@@ -2350,7 +2350,7 @@ chrome.storage.local.get([
                             const updatedRelationships = payload.song.song_relationships_by_id.filter(rel => rel.type !== newRelationship.type);
                             payload.song.song_relationships_by_id = [...updatedRelationships, newRelationship];
                         } else if (checkboxStates.removeRelationship && songRelationshipsPayload) {
-                            const existingRelationships = existingSongsData.find(song => song.id === songIds[songIndex])?.existingSongRelationships || [];
+                            const existingRelationships = existingSongsData.find(song => Number(song.id) === Number(songIds[songIndex]))?.existingSongRelationships || [];
 
                             payload.song.song_relationships_by_id = existingRelationships.map(rel => ({
                                 song_ids: rel.songs?.map(song => song.id) || [],
@@ -2366,7 +2366,7 @@ chrome.storage.local.get([
                                 existingRelationship.song_ids = existingRelationship.song_ids.filter(id => !relationshipToRemove.song_ids.includes(String(id)));
                             }
                         } else {
-                            const existingRelationships = existingSongsData.find(song => song.id === songIds[songIndex])?.existingSongRelationships || [];
+                            const existingRelationships = existingSongsData.find(song => Number(song.id) === Number(songIds[songIndex]))?.existingSongRelationships || [];
 
                             payload.song.song_relationships_by_id = existingRelationships.map(rel => ({
                                 song_ids: rel.songs?.map(song => song.id) || [],
@@ -4221,7 +4221,7 @@ chrome.storage.local.get([
 
                 for (let i = 0; i < mainSongIds.length; i++) {
                     const songId = mainSongIds[i];
-                    const existingSongData = songDataAlbum.find(song => song.id === songId);
+                    const existingSongData = songDataAlbum.find(song => Number(song.id) === Number(songId));
 
                     const payload = await processMainPayload(
                         songId,
@@ -4252,7 +4252,7 @@ chrome.storage.local.get([
 
                         for (let i = 0; i < songIds.length; i++) {
                             const songId = songIds[i];
-                            const existingSongData = songDataAlbum.find(song => song.id === songId);
+                            const existingSongData = songDataAlbum.find(song => Number(song.id) === Number(songId));
 
                             const payload = await processAdditionalPayload(
                                 songId,
@@ -4270,7 +4270,7 @@ chrome.storage.local.get([
                 } else {
                     for (let i = 0; i < mainSongIds.length; i++) {
                         const songId = mainSongIds[i];
-                        const existingSongData = songDataAlbum.find(song => song.id === songId);
+                        const existingSongData = songDataAlbum.find(song => Number(song.id) === Number(songId));
 
                         const payload = await processAdditionalPayload(
                             songId,
@@ -4741,9 +4741,9 @@ chrome.storage.local.get([
 
                 async function processSong(songId) {
                     const payload = finalPayload[songId];
-                    const song = songDataAlbum.find(s => s.id === Number(songId));
+                    const song = songDataAlbum.find(s => Number(s.id) === Number(songId));
 
-                    if (payload) {
+                    if (payload && song) {
                         await updateSongMetadata(song, payload.song);
                     } else {
                         await new Promise(resolve => setTimeout(resolve, 50));
@@ -7329,60 +7329,59 @@ chrome.storage.local.get([
                 page3.appendChild(tracklist3);
                 page3.appendChild(container);
 
-                loadCurrentBtn.addEventListener('click', () => {
-                    const tracklistIndividual = document.querySelector('#tracklist_individual')?._checked;
+                loadCurrentBtn.addEventListener('click', async () => {
+                    loadCurrentBtn.disabled = true;
+                    feedback.style.color = '#333';
+                    feedback.textContent = 'Loading current song credits from Genius...';
 
-                    if (tracklistIndividual) {
+                    try {
+                        const songDataBatch = (await getApiDataBatch(songIds, "songs")).map(d => d?.song).filter(Boolean);
+                        if (!songDataBatch.length) {
+                            feedback.style.color = '#FF1414';
+                            feedback.textContent = 'Failed to load song credits from Genius.';
+                            return;
+                        }
+
                         const tracksData = songIds.map((songId, index) => {
                             const trackNum = rawTrackNumbers[index] !== "" ? rawTrackNumbers[index] : trackNumbers[index];
-                            const trackAdditionalCredits = creditsState.additionalCreditsArray.map(idx => {
-                                const roleObj = creditsState.additionalRolesArray[idx]?.[0];
-                                const artistsObjs = creditsState.artistRolesArray[idx] || [];
-                                const cb = document.querySelector(`#checkbox_${idx}_${songId}`);
-                                if (cb && cb.checked) {
-                                    return {
-                                        role: roleObj ? (roleObj.label || roleObj.name) : '',
-                                        artists: artistsObjs.map(a => a.name || a.label)
-                                    };
-                                }
-                                return null;
-                            }).filter(Boolean);
+                            const song = songDataBatch.find(s => Number(s.id) === Number(songId));
+                            if (!song) {
+                                return {
+                                    track: trackNum,
+                                    song_id: songId,
+                                    primary_artists: [],
+                                    featured_artists: [],
+                                    producers: [],
+                                    writers: [],
+                                    tags: [],
+                                    additional_credits: []
+                                };
+                            }
 
                             return {
                                 track: trackNum,
-                                song_id: songId,
-                                primary_artists: creditsState.primaryArtistsArray.map(a => a.name || a.label),
-                                featured_artists: creditsState.featuredArtistsArray.map(a => a.name || a.label),
-                                producers: creditsState.producersArray.map(a => a.name || a.label),
-                                writers: creditsState.writersArray.map(a => a.name || a.label),
-                                tags: creditsState.secondaryTagsArray.map(t => t.name || t.label),
-                                additional_credits: trackAdditionalCredits
+                                song_id: song.id,
+                                primary_artists: (song.primary_artists || []).map(a => a.name),
+                                featured_artists: (song.featured_artists || []).map(a => a.name),
+                                producers: (song.producer_artists || []).map(a => a.name),
+                                writers: (song.writer_artists || []).map(a => a.name),
+                                tags: (song.tags || []).map(t => t.name),
+                                additional_credits: (song.custom_performances || []).map(cp => ({
+                                    role: cp.label,
+                                    artists: (cp.artists || []).map(a => a.name)
+                                }))
                             };
                         });
 
                         textarea.value = JSON.stringify({ tracks: tracksData }, null, 2);
-                    } else {
-                        const currentData = {
-                            primary_artists: creditsState.primaryArtistsArray.map(a => a.name || a.label),
-                            featured_artists: creditsState.featuredArtistsArray.map(a => a.name || a.label),
-                            producers: creditsState.producersArray.map(a => a.name || a.label),
-                            writers: creditsState.writersArray.map(a => a.name || a.label),
-                            tags: creditsState.secondaryTagsArray.map(t => t.name || t.label),
-                            additional_credits: creditsState.additionalCreditsArray.map(idx => {
-                                const roleObj = creditsState.additionalRolesArray[idx]?.[0];
-                                const artistsObjs = creditsState.artistRolesArray[idx] || [];
-                                return {
-                                    role: roleObj ? (roleObj.label || roleObj.name) : '',
-                                    artists: artistsObjs.map(a => a.name || a.label)
-                                };
-                            }).filter(item => item.role || item.artists.length > 0)
-                        };
-
-                        textarea.value = JSON.stringify(currentData, null, 2);
+                        feedback.style.color = '#007A33';
+                        feedback.textContent = 'Loaded current credits state into JSON.';
+                    } catch (err) {
+                        feedback.style.color = '#FF1414';
+                        feedback.textContent = 'Error loading current credits: ' + err.message;
+                    } finally {
+                        loadCurrentBtn.disabled = false;
                     }
-
-                    feedback.style.color = '#007A33';
-                    feedback.textContent = 'Loaded current credits state into JSON.';
                 });
 
                 applyJsonBtn.addEventListener('click', async () => {
