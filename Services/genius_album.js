@@ -6811,6 +6811,8 @@ chrome.storage.local.get([
                 return tracklist1
             }
 
+            let newArtistCounter = 0;
+
             async function resolveArtistQuery(query) {
                 if (!query) return null;
                 if (typeof query === 'object' && query.id && (query.name || query.label)) {
@@ -6821,17 +6823,14 @@ chrome.storage.local.get([
                 if (!queryString) return null;
 
                 const results = await fetchSuggestions('artists', queryString);
-                if (!results || results.length === 0) {
-                    return { id: Date.now(), name: queryString };
+                if (results && results.length > 0) {
+                    const exactMatch = results.find(a => a.name && a.name.toLowerCase() === queryString.toLowerCase());
+                    if (exactMatch) {
+                        return { id: exactMatch.id, name: exactMatch.name };
+                    }
                 }
 
-                const exactMatch = results.find(a => a.name && a.name.toLowerCase() === queryString.toLowerCase());
-                if (exactMatch) {
-                    return { id: exactMatch.id, name: exactMatch.name };
-                }
-
-                const lastResult = results[results.length - 1];
-                return { id: lastResult.id, name: lastResult.name };
+                return { id: Date.now() + (newArtistCounter++), name: queryString };
             }
 
             async function resolveRoleQuery(query) {
@@ -6844,17 +6843,14 @@ chrome.storage.local.get([
                 if (!queryString) return null;
 
                 const results = await fetchSuggestions('custom_performance_roles', queryString);
-                if (!results || results.length === 0) {
-                    return { id: queryString.toLowerCase().replace(/[^a-z0-9]/g, '_'), label: queryString };
+                if (results && results.length > 0) {
+                    const exactMatch = results.find(r => (r.label && r.label.toLowerCase() === queryString.toLowerCase()) || (r.name && r.name.toLowerCase() === queryString.toLowerCase()));
+                    if (exactMatch) {
+                        return { id: exactMatch.id, label: exactMatch.label || exactMatch.name };
+                    }
                 }
 
-                const exactMatch = results.find(r => (r.label && r.label.toLowerCase() === queryString.toLowerCase()) || (r.name && r.name.toLowerCase() === queryString.toLowerCase()));
-                if (exactMatch) {
-                    return { id: exactMatch.id, label: exactMatch.label || exactMatch.name };
-                }
-
-                const lastResult = results[results.length - 1];
-                return { id: lastResult.id, label: lastResult.label || lastResult.name };
+                return { id: queryString.toLowerCase().replace(/[^a-z0-9]/g, '_'), label: queryString };
             }
 
             async function resolveTagQuery(query) {
