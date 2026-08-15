@@ -6876,6 +6876,208 @@ chrome.storage.local.get([
                     });
                 }
 
+                let tracksArray = null;
+                if (Array.isArray(data.tracks)) {
+                    tracksArray = data.tracks;
+                } else if (Array.isArray(data)) {
+                    tracksArray = data;
+                } else if (data.tracks && typeof data.tracks === 'object') {
+                    tracksArray = Object.entries(data.tracks).map(([key, val]) => ({ track: key, ...val }));
+                }
+
+                let primaryArtistsSource = data.primary_artists;
+                let featuredArtistsSource = data.featured_artists;
+                let producersSource = data.producers;
+                let writersSource = data.writers;
+                let tagsSource = data.tags;
+
+                if (tracksArray) {
+                    if (!primaryArtistsSource) {
+                        const all = tracksArray.flatMap(t => t.primary_artists || []).filter(Boolean);
+                        if (all.length) primaryArtistsSource = [...new Set(all)];
+                    }
+                    if (!featuredArtistsSource) {
+                        const all = tracksArray.flatMap(t => t.featured_artists || []).filter(Boolean);
+                        if (all.length) featuredArtistsSource = [...new Set(all)];
+                    }
+                    if (!producersSource) {
+                        const all = tracksArray.flatMap(t => t.producers || []).filter(Boolean);
+                        if (all.length) producersSource = [...new Set(all)];
+                    }
+                    if (!writersSource) {
+                        const all = tracksArray.flatMap(t => t.writers || []).filter(Boolean);
+                        if (all.length) writersSource = [...new Set(all)];
+                    }
+                    if (!tagsSource) {
+                        const all = tracksArray.flatMap(t => t.tags || []).filter(Boolean);
+                        if (all.length) tagsSource = [...new Set(all)];
+                    }
+                }
+
+                if (Array.isArray(primaryArtistsSource)) {
+                    creditsState.primaryArtistsArray = [];
+                    for (const item of primaryArtistsSource) {
+                        const resolved = await resolveArtistQuery(item);
+                        if (resolved && !creditsState.primaryArtistsArray.some(a => a.id === resolved.id)) {
+                            creditsState.primaryArtistsArray.push(resolved);
+                        }
+                    }
+                    renderTagsForField(creditsState.primaryArtistsArray, 'primary_artists');
+                }
+
+                if (Array.isArray(featuredArtistsSource)) {
+                    creditsState.featuredArtistsArray = [];
+                    for (const item of featuredArtistsSource) {
+                        const resolved = await resolveArtistQuery(item);
+                        if (resolved && !creditsState.featuredArtistsArray.some(a => a.id === resolved.id)) {
+                            creditsState.featuredArtistsArray.push(resolved);
+                        }
+                    }
+                    renderTagsForField(creditsState.featuredArtistsArray, 'featured_artists');
+                }
+
+                if (Array.isArray(producersSource)) {
+                    creditsState.producersArray = [];
+                    for (const item of producersSource) {
+                        const resolved = await resolveArtistQuery(item);
+                        if (resolved && !creditsState.producersArray.some(a => a.id === resolved.id)) {
+                            creditsState.producersArray.push(resolved);
+                        }
+                    }
+                    renderTagsForField(creditsState.producersArray, 'producers');
+                }
+
+                if (Array.isArray(writersSource)) {
+                    creditsState.writersArray = [];
+                    for (const item of writersSource) {
+                        const resolved = await resolveArtistQuery(item);
+                        if (resolved && !creditsState.writersArray.some(a => a.id === resolved.id)) {
+                            creditsState.writersArray.push(resolved);
+                        }
+                    }
+                    renderTagsForField(creditsState.writersArray, 'writers');
+                }
+
+                if (Array.isArray(tagsSource)) {
+                    creditsState.secondaryTagsArray = [];
+                    for (const item of tagsSource) {
+                        if (typeof item === 'string') {
+                            creditsState.secondaryTagsArray.push({ id: item.toLowerCase().replace(/\s+/g, '-'), name: item });
+                        } else if (item && item.name) {
+                            creditsState.secondaryTagsArray.push(item);
+                        }
+                    }
+                    renderTagsForField(creditsState.secondaryTagsArray, 'tags');
+                }
+
+                if (tracksArray) {
+                    const toggleButton = document.querySelector("#tracklist_individual");
+                    if (toggleButton && !toggleButton._checked) {
+                        toggleButton.click();
+                    }
+
+                    for (const trackData of tracksArray) {
+                        const trackNum = trackData.track ?? trackData.track_number ?? trackData.number;
+                        let targetSongId = null;
+
+                        if (trackNum !== undefined && trackNum !== null) {
+                            const trackNumStr = String(trackNum).trim();
+                            const foundIndex = rawTrackNumbers.findIndex((num, idx) =>
+                                String(num).trim() === trackNumStr || String(trackNumbers[idx]) === trackNumStr
+                            );
+                            if (foundIndex !== -1) {
+                                targetSongId = songIds[foundIndex];
+                            }
+                        }
+
+                        if (!targetSongId && trackData.song_id) {
+                            targetSongId = String(trackData.song_id);
+                        }
+
+                        if (!targetSongId && tracksArray.length === songIds.length) {
+                            const arrayIdx = tracksArray.indexOf(trackData);
+                            if (arrayIdx !== -1) targetSongId = songIds[arrayIdx];
+                        }
+
+                        if (!targetSongId) continue;
+
+                        const rawAdditional = trackData.additional_credits || trackData.custom_performances || trackData.credits;
+                        if (Array.isArray(rawAdditional)) {
+                            for (const creditGroup of rawAdditional) {
+                                const roleQuery = creditGroup.role || creditGroup.label;
+                                const artistsQueries = creditGroup.artists || creditGroup.artist;
+                                if (!roleQuery) continue;
+
+                                const resolvedRole = await resolveRoleQuery(roleQuery);
+                                if (!resolvedRole) continue;
+
+                                const resolvedArtists = [];
+                                if (Array.isArray(artistsQueries)) {
+                                    for (const q of artistsQueries) {
+                                        const res = await resolveArtistQuery(q);
+                                        if (res && !resolvedArtists.some(a => a.id === res.id)) {
+                                            resolvedArtists.push(res);
+                                        }
+                                    }
+                                } else if (artistsQueries) {
+                                    const res = await resolveArtistQuery(artistsQueries);
+                                    if (res) resolvedArtists.push(res);
+                                }
+
+                                const subSection = createAdditionalRoles();
+                                const subSectionCreditsContainer = document.querySelector('.sub_section_credits_container') || document.querySelector('form');
+                                if (subSectionCreditsContainer && subSectionCreditsContainer.contains(subSection) === false) {
+                                    const btn = subSectionCreditsContainer.querySelector('span');
+                                    if (btn) {
+                                        subSectionCreditsContainer.insertBefore(subSection, btn);
+                                    } else {
+                                        subSectionCreditsContainer.appendChild(subSection);
+                                    }
+                                }
+
+                                const currentRoleIdx = creditsState.roleIndex - 1;
+
+                                creditsState.additionalRolesArray[currentRoleIdx] = [resolvedRole];
+                                creditsState.artistRolesArray[currentRoleIdx] = resolvedArtists;
+                                if (!creditsState.additionalCreditsArray.includes(currentRoleIdx)) {
+                                    creditsState.additionalCreditsArray.push(currentRoleIdx);
+                                }
+
+                                const roleInputs = document.querySelectorAll(`input[name="additional_role_${currentRoleIdx}"]`);
+                                roleInputs.forEach(input => {
+                                    const wrapper = input.closest('div');
+                                    const tagsList = wrapper ? wrapper.querySelector('div') : null;
+                                    if (tagsList && typeof addTag === 'function') {
+                                        addTag(tagsList, resolvedRole, `additional_role_${currentRoleIdx}`);
+                                    }
+                                });
+
+                                const artistInputs = document.querySelectorAll(`input[name="artist_role_${currentRoleIdx}"]`);
+                                artistInputs.forEach(input => {
+                                    const wrapper = input.closest('div');
+                                    const tagsList = wrapper ? wrapper.querySelector('div') : null;
+                                    if (tagsList && typeof addTag === 'function') {
+                                        resolvedArtists.forEach(art => addTag(tagsList, art, `artist_role_${currentRoleIdx}`));
+                                    }
+                                });
+
+                                const miniTracklist = subSection.querySelector('.miniTracklist');
+                                if (miniTracklist) {
+                                    const miniCheckboxes = miniTracklist.querySelectorAll('.styled-checkbox');
+                                    miniCheckboxes.forEach(cb => {
+                                        const isMatch = cb.id === `checkbox_${currentRoleIdx}_${targetSongId}`;
+                                        if (cb.checked !== isMatch) {
+                                            cb.checked = isMatch;
+                                            cb.dispatchEvent(new Event("change"));
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    return;
+                }
+
                 if (Array.isArray(data.primary_artists)) {
                     creditsState.primaryArtistsArray = [];
                     for (const item of data.primary_artists) {
@@ -7084,11 +7286,17 @@ chrome.storage.local.get([
                 const textarea = document.createElement('textarea');
                 textarea.id = 'advanced_credits_json';
                 textarea.placeholder = JSON.stringify({
-                    primary_artists: ['Artist Name'],
-                    featured_artists: ['Artist Name'],
-                    producers: ['Producer Name'],
-                    writers: ['Writer Name'],
-                    additional_credits: [{ role: 'Phonographic Copyright ℗', artists: ['Label or Artist Name'] }]
+                    tracks: [
+                        {
+                            track: 1,
+                            primary_artists: ['Artist Name'],
+                            additional_credits: [{ role: 'Synthesizer', artists: ['Musician Name'] }]
+                        },
+                        {
+                            track: 2,
+                            additional_credits: [{ role: 'Guitar', artists: ['Guitarist Name'] }]
+                        }
+                    ]
                 }, null, 2);
                 Object.assign(textarea.style, {
                     width: '100%',
@@ -7122,23 +7330,57 @@ chrome.storage.local.get([
                 page3.appendChild(container);
 
                 loadCurrentBtn.addEventListener('click', () => {
-                    const currentData = {
-                        primary_artists: creditsState.primaryArtistsArray.map(a => a.name || a.label),
-                        featured_artists: creditsState.featuredArtistsArray.map(a => a.name || a.label),
-                        producers: creditsState.producersArray.map(a => a.name || a.label),
-                        writers: creditsState.writersArray.map(a => a.name || a.label),
-                        tags: creditsState.secondaryTagsArray.map(t => t.name || t.label),
-                        additional_credits: creditsState.additionalCreditsArray.map(idx => {
-                            const roleObj = creditsState.additionalRolesArray[idx]?.[0];
-                            const artistsObjs = creditsState.artistRolesArray[idx] || [];
-                            return {
-                                role: roleObj ? (roleObj.label || roleObj.name) : '',
-                                artists: artistsObjs.map(a => a.name || a.label)
-                            };
-                        }).filter(item => item.role || item.artists.length > 0)
-                    };
+                    const tracklistIndividual = document.querySelector('#tracklist_individual')?._checked;
 
-                    textarea.value = JSON.stringify(currentData, null, 2);
+                    if (tracklistIndividual) {
+                        const tracksData = songIds.map((songId, index) => {
+                            const trackNum = rawTrackNumbers[index] !== "" ? rawTrackNumbers[index] : trackNumbers[index];
+                            const trackAdditionalCredits = creditsState.additionalCreditsArray.map(idx => {
+                                const roleObj = creditsState.additionalRolesArray[idx]?.[0];
+                                const artistsObjs = creditsState.artistRolesArray[idx] || [];
+                                const cb = document.querySelector(`#checkbox_${idx}_${songId}`);
+                                if (cb && cb.checked) {
+                                    return {
+                                        role: roleObj ? (roleObj.label || roleObj.name) : '',
+                                        artists: artistsObjs.map(a => a.name || a.label)
+                                    };
+                                }
+                                return null;
+                            }).filter(Boolean);
+
+                            return {
+                                track: trackNum,
+                                song_id: songId,
+                                primary_artists: creditsState.primaryArtistsArray.map(a => a.name || a.label),
+                                featured_artists: creditsState.featuredArtistsArray.map(a => a.name || a.label),
+                                producers: creditsState.producersArray.map(a => a.name || a.label),
+                                writers: creditsState.writersArray.map(a => a.name || a.label),
+                                tags: creditsState.secondaryTagsArray.map(t => t.name || t.label),
+                                additional_credits: trackAdditionalCredits
+                            };
+                        });
+
+                        textarea.value = JSON.stringify({ tracks: tracksData }, null, 2);
+                    } else {
+                        const currentData = {
+                            primary_artists: creditsState.primaryArtistsArray.map(a => a.name || a.label),
+                            featured_artists: creditsState.featuredArtistsArray.map(a => a.name || a.label),
+                            producers: creditsState.producersArray.map(a => a.name || a.label),
+                            writers: creditsState.writersArray.map(a => a.name || a.label),
+                            tags: creditsState.secondaryTagsArray.map(t => t.name || t.label),
+                            additional_credits: creditsState.additionalCreditsArray.map(idx => {
+                                const roleObj = creditsState.additionalRolesArray[idx]?.[0];
+                                const artistsObjs = creditsState.artistRolesArray[idx] || [];
+                                return {
+                                    role: roleObj ? (roleObj.label || roleObj.name) : '',
+                                    artists: artistsObjs.map(a => a.name || a.label)
+                                };
+                            }).filter(item => item.role || item.artists.length > 0)
+                        };
+
+                        textarea.value = JSON.stringify(currentData, null, 2);
+                    }
+
                     feedback.style.color = '#007A33';
                     feedback.textContent = 'Loaded current credits state into JSON.';
                 });
