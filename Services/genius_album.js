@@ -3639,6 +3639,7 @@ chrome.storage.local.get([
                 additionalContainer.appendChild(creditsLabel);
 
                 const subSectionCreditsContainer = document.createElement('div');
+                subSectionCreditsContainer.className = 'sub_section_credits_container';
                 additionalContainer.appendChild(subSectionCreditsContainer);
 
                 const initialSubSectionCredits = createAdditionalRoles();
@@ -6617,6 +6618,7 @@ chrome.storage.local.get([
                 });
 
                 const subSectionCreditsContainer = document.createElement('div');
+                subSectionCreditsContainer.className = 'sub_section_credits_container';
                 Object.assign(subSectionCreditsContainer.style, {
                     display: "flex",
                     flexDirection: "column",
@@ -7139,7 +7141,7 @@ chrome.storage.local.get([
                                 const subSectionCreditsContainer = document.querySelector('.sub_section_credits_container') || document.querySelector('form');
                                 if (subSectionCreditsContainer && subSectionCreditsContainer.contains(subSection) === false) {
                                     const btn = subSectionCreditsContainer.querySelector('span');
-                                    if (btn) {
+                                    if (btn && btn.parentNode === subSectionCreditsContainer) {
                                         subSectionCreditsContainer.insertBefore(subSection, btn);
                                     } else {
                                         subSectionCreditsContainer.appendChild(subSection);
@@ -7274,7 +7276,7 @@ chrome.storage.local.get([
                             subSection = createAdditionalRoles();
                             if (subSectionCreditsContainer && subSectionCreditsContainer.contains(subSection) === false) {
                                 const btn = subSectionCreditsContainer.querySelector('span');
-                                if (btn) {
+                                if (btn && btn.parentNode === subSectionCreditsContainer) {
                                     subSectionCreditsContainer.insertBefore(subSection, btn);
                                 } else {
                                     subSectionCreditsContainer.appendChild(subSection);
