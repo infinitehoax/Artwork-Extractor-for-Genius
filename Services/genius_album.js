@@ -2117,6 +2117,9 @@ chrome.storage.local.get([
                         } else {
                             payload.song.tags = [...existingTags, ...tagsPayload.filter(newTag => !existingTags.some(existingTag => existingTag.id === newTag.id))];
                         }
+                        if (payload.song.tags) {
+                            payload.song.tags = payload.song.tags.filter(tag => tag && typeof tag.id === 'number');
+                        }
                     }
 
                     if (youtubePayload.length != 0 || checkboxStates.overwriteYouTube || checkboxStates.removeYouTube) {
@@ -4538,6 +4541,9 @@ chrome.storage.local.get([
                         } else {
                             payload.song.tags = [...existingSecondaryTags, ...secondaryTagsPayload.filter(newTag => !existingSecondaryTags.some(existingSecondaryTag => existingSecondaryTag.id === newTag.id))];
                         }
+                        if (payload.song.tags) {
+                            payload.song.tags = payload.song.tags.filter(tag => tag && typeof tag.id === 'number');
+                        }
                     }
 
                     if ((releaseDatePayload?.day != null || releaseDatePayload?.month != null || releaseDatePayload?.year != null) || checkboxStates.overwriteReleaseDate || checkboxStates.removeReleaseDate) {
@@ -6841,6 +6847,29 @@ chrome.storage.local.get([
                 return { id: lastResult.id, label: lastResult.label || lastResult.name };
             }
 
+            async function resolveTagQuery(query) {
+                if (!query) return null;
+                if (typeof query === 'object' && query.id && typeof query.id === 'number' && query.name) {
+                    return { id: query.id, name: query.name };
+                }
+
+                const queryString = (typeof query === 'object' ? (query.name || query.id) : String(query)).trim();
+                if (!queryString) return null;
+
+                const results = await fetchSuggestions('tags', queryString);
+                if (results && results.length > 0) {
+                    const exactMatch = results.find(t => t.name && t.name.toLowerCase() === queryString.toLowerCase());
+                    if (exactMatch && typeof exactMatch.id === 'number') {
+                        return { id: exactMatch.id, name: exactMatch.name };
+                    }
+                    const validResult = results.find(t => typeof t.id === 'number');
+                    if (validResult) {
+                        return { id: validResult.id, name: validResult.name };
+                    }
+                }
+                return null;
+            }
+
             async function processAndImportJsonCredits(data, creditsState, songIds, rawTrackNumbers, trackNumbers) {
                 if (!data || typeof data !== 'object') {
                     throw new Error('Invalid JSON format: expected an object.');
@@ -6961,10 +6990,9 @@ chrome.storage.local.get([
                 if (Array.isArray(tagsSource)) {
                     creditsState.secondaryTagsArray = [];
                     for (const item of tagsSource) {
-                        if (typeof item === 'string') {
-                            creditsState.secondaryTagsArray.push({ id: item.toLowerCase().replace(/\s+/g, '-'), name: item });
-                        } else if (item && item.name) {
-                            creditsState.secondaryTagsArray.push(item);
+                        const resolved = await resolveTagQuery(item);
+                        if (resolved && !creditsState.secondaryTagsArray.some(t => t.id === resolved.id)) {
+                            creditsState.secondaryTagsArray.push(resolved);
                         }
                     }
                     renderTagsForField(creditsState.secondaryTagsArray, 'tags');
@@ -7125,10 +7153,9 @@ chrome.storage.local.get([
                 if (Array.isArray(data.tags)) {
                     creditsState.secondaryTagsArray = [];
                     for (const item of data.tags) {
-                        if (typeof item === 'string') {
-                            creditsState.secondaryTagsArray.push({ id: item.toLowerCase().replace(/\s+/g, '-'), name: item });
-                        } else if (item && item.name) {
-                            creditsState.secondaryTagsArray.push(item);
+                        const resolved = await resolveTagQuery(item);
+                        if (resolved && !creditsState.secondaryTagsArray.some(t => t.id === resolved.id)) {
+                            creditsState.secondaryTagsArray.push(resolved);
                         }
                     }
                     renderTagsForField(creditsState.secondaryTagsArray, 'tags');
