@@ -891,12 +891,67 @@ chrome.storage.local.get([
     //////////                                TRACKLIST BUTTON                                //////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    function expandLineRanges(line) {
+        if (!line || typeof line !== 'string') return [];
+
+        const braceMatch = line.match(/\{(\d+)\s*(?:\.\.|-)\s*(\d+)\}/);
+        if (braceMatch) {
+            const fullMatch = braceMatch[0];
+            const startStr = braceMatch[1];
+            const endStr = braceMatch[2];
+            const start = parseInt(startStr, 10);
+            const end = parseInt(endStr, 10);
+
+            if (!isNaN(start) && !isNaN(end) && start <= end && (end - start) <= 1000) {
+                const padWidth = (startStr.startsWith('0') || endStr.startsWith('0'))
+                    ? Math.max(startStr.length, endStr.length)
+                    : 0;
+
+                const expanded = [];
+                for (let i = start; i <= end; i++) {
+                    const numStr = padWidth > 0 ? String(i).padStart(padWidth, '0') : String(i);
+                    expanded.push(line.replace(fullMatch, numStr));
+                }
+                return expanded;
+            }
+        }
+
+        const dotDotMatch = line.match(/\b(\d+)\s*\.\.\s*(\d+)\b/);
+        if (dotDotMatch) {
+            const fullMatch = dotDotMatch[0];
+            const startStr = dotDotMatch[1];
+            const endStr = dotDotMatch[2];
+            const start = parseInt(startStr, 10);
+            const end = parseInt(endStr, 10);
+
+            if (!isNaN(start) && !isNaN(end) && start <= end && (end - start) <= 1000) {
+                const padWidth = (startStr.startsWith('0') || endStr.startsWith('0'))
+                    ? Math.max(startStr.length, endStr.length)
+                    : 0;
+
+                const expanded = [];
+                for (let i = start; i <= end; i++) {
+                    const numStr = padWidth > 0 ? String(i).padStart(padWidth, '0') : String(i);
+                    expanded.push(line.replace(fullMatch, numStr));
+                }
+                return expanded;
+            }
+        }
+
+        return [line];
+    }
+
     function parseSongTitles(rawInput) {
         if (!rawInput || typeof rawInput !== 'string') return [];
-        return rawInput
-            .split(/\r?\n/)
-            .map(line => line.trim())
-            .filter(line => line.length > 0)
+        const lines = rawInput.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+        const expandedLines = [];
+
+        for (const line of lines) {
+            const expanded = expandLineRanges(line);
+            expandedLines.push(...expanded);
+        }
+
+        return expandedLines
             .map(line => line.replace(/^(?:(?:track\s*)?\[?\d+\]?[\.\)\-:]\s*|\d+\s*[\.\)\-:]\s*)/i, '').trim())
             .filter(title => title.length > 0);
     }
@@ -1096,7 +1151,15 @@ chrome.storage.local.get([
             display: "flex",
             gap: "1.5rem",
             alignItems: "center",
+            justifyContent: "space-between",
             fontSize: "0.85rem"
+        });
+
+        const radiosWrapper = document.createElement("div");
+        Object.assign(radiosWrapper.style, {
+            display: "flex",
+            gap: "1.5rem",
+            alignItems: "center"
         });
 
         const modeAppendLabel = document.createElement("label");
@@ -1118,8 +1181,24 @@ chrome.storage.local.get([
         modeReplaceLabel.appendChild(modeReplaceRadio);
         modeReplaceLabel.appendChild(document.createTextNode("Replace entire tracklist"));
 
-        modeContainer.appendChild(modeAppendLabel);
-        modeContainer.appendChild(modeReplaceLabel);
+        radiosWrapper.appendChild(modeAppendLabel);
+        radiosWrapper.appendChild(modeReplaceLabel);
+
+        const importBtn = document.createElement("button");
+        importBtn.type = "button";
+        importBtn.textContent = "Import Current Tracklist";
+        Object.assign(importBtn.style, {
+            padding: "0.25rem 0.75rem",
+            border: "1px solid #000",
+            borderRadius: "1rem",
+            backgroundColor: "#fff",
+            fontSize: "0.75rem",
+            cursor: "pointer",
+            fontWeight: "bold"
+        });
+
+        modeContainer.appendChild(radiosWrapper);
+        modeContainer.appendChild(importBtn);
 
         const textarea = document.createElement("textarea");
         textarea.placeholder = "1. intro\n2. Fuck you mean?\n3. Track 057\n...";
@@ -1196,6 +1275,62 @@ chrome.storage.local.get([
             fontWeight: "bold"
         });
 
+        async function fetchCurrentAppearances(albumId) {
+            try {
+                const { album: freshAlbumData } = await getApiData(albumId, "albums");
+                if (freshAlbumData && Array.isArray(freshAlbumData.album_appearances) && freshAlbumData.album_appearances.length > 0) {
+                    return freshAlbumData.album_appearances;
+                }
+
+                const res = await geniusFetch(`https://genius.com/api/albums/${albumId}/appearances?unpaginated=true&include_tags=true&include_custom_performances=true`);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json && json.response && Array.isArray(json.response.album_appearances)) {
+                        return json.response.album_appearances;
+                    }
+                }
+            } catch (err) {
+                console.warn("Error fetching album appearances:", err);
+            }
+            return [];
+        }
+
+        importBtn.addEventListener("click", async () => {
+            importBtn.disabled = true;
+            statusDisplay.style.color = "#333";
+            statusDisplay.textContent = "Importing current tracklist...";
+
+            try {
+                const appearances = await fetchCurrentAppearances(currentAlbumId);
+                if (!appearances || !appearances.length) {
+                    statusDisplay.style.color = "#FF1414";
+                    statusDisplay.textContent = "No current tracks found for this album.";
+                    importBtn.disabled = false;
+                    return;
+                }
+
+                const lines = appearances
+                    .sort((a, b) => (a.disc_track_number || a.track_number || 0) - (b.disc_track_number || b.track_number || 0))
+                    .map((app, idx) => {
+                        const trackNum = app.disc_track_number || app.track_number || (idx + 1);
+                        const songTitle = app.song?.title || `Track ${String(trackNum).padStart(3, "0")}`;
+                        return `${trackNum}. ${songTitle}`;
+                    });
+
+                textarea.value = lines.join("\n");
+                const parsed = parseSongTitles(textarea.value);
+                previewStatus.textContent = `${parsed.length} track${parsed.length === 1 ? "" : "s"} detected`;
+
+                statusDisplay.style.color = "#007A33";
+                statusDisplay.textContent = `Imported ${lines.length} existing track${lines.length === 1 ? "" : "s"}.`;
+            } catch (err) {
+                statusDisplay.style.color = "#FF1414";
+                statusDisplay.textContent = `Error importing tracklist: ${err.message}`;
+            } finally {
+                importBtn.disabled = false;
+            }
+        });
+
         saveBtn.addEventListener("click", async () => {
             const titles = parseSongTitles(textarea.value);
             if (!titles.length) {
@@ -1206,16 +1341,12 @@ chrome.storage.local.get([
 
             saveBtn.disabled = true;
             cancelBtn.disabled = true;
+            importBtn.disabled = true;
             statusDisplay.style.color = "#333";
             statusDisplay.textContent = "Fetching current album tracklist...";
 
             try {
-                const { album: freshAlbumData } = await getApiData(currentAlbumId, "albums");
-                if (!freshAlbumData) {
-                    throw new Error("Could not fetch album details.");
-                }
-
-                const appearances = freshAlbumData.album_appearances || [];
+                const appearances = await fetchCurrentAppearances(currentAlbumId);
 
                 let tracklist = [];
                 const isAppend = modeAppendRadio.checked;
@@ -1223,7 +1354,7 @@ chrome.storage.local.get([
                 if (isAppend) {
                     tracklist = appearances.map(app => ({
                         disc_number: app.disc_number || 1,
-                        disc_track_number: app.track_number,
+                        disc_track_number: app.disc_track_number || app.track_number,
                         song_id: app.song.id
                     }));
 
@@ -1248,26 +1379,68 @@ chrome.storage.local.get([
                     });
                 }
 
-                statusDisplay.textContent = `Saving ${titles.length} track${titles.length === 1 ? "" : "s"} to Genius...`;
+                const CHUNK_SIZE = 30;
+                let currentTracklist = isAppend ? appearances.map(app => ({
+                    disc_number: app.disc_number || 1,
+                    disc_track_number: app.disc_track_number || app.track_number,
+                    song_id: app.song.id
+                })) : [];
 
-                const res = await updateAlbumTracklist(currentAlbumId, {
-                    tracklist,
-                    viewable_by_roles: [],
-                    react_album_page: true
-                });
+                let startTrackNum = currentTracklist.reduce((max, t) => Math.max(max, t.disc_track_number || 0), 0);
 
-                if (res && res.ok) {
+                const totalBatches = Math.ceil(titles.length / CHUNK_SIZE);
+                let failed = false;
+
+                for (let i = 0; i < titles.length; i += CHUNK_SIZE) {
+                    const chunk = titles.slice(i, i + CHUNK_SIZE);
+                    const currentBatch = Math.floor(i / CHUNK_SIZE) + 1;
+
+                    chunk.forEach((title, idx) => {
+                        currentTracklist.push({
+                            disc_number: 1,
+                            disc_track_number: startTrackNum + idx + 1,
+                            title: title,
+                            lyrics_state: "incomplete"
+                        });
+                    });
+
+                    startTrackNum += chunk.length;
+
+                    statusDisplay.textContent = `Saving batch ${currentBatch} of ${totalBatches} (${currentTracklist.length} total tracks)...`;
+
+                    const res = await updateAlbumTracklist(currentAlbumId, {
+                        tracklist: currentTracklist,
+                        viewable_by_roles: [],
+                        react_album_page: true
+                    });
+
+                    if (!res || !res.ok) {
+                        const errText = res?.statusText || res?.error || "Unknown error";
+                        statusDisplay.style.color = "#FF1414";
+                        statusDisplay.textContent = `Error saving tracklist (Batch ${currentBatch}/${totalBatches}): ${errText}`;
+                        saveBtn.disabled = false;
+                        cancelBtn.disabled = false;
+                        importBtn.disabled = false;
+                        failed = true;
+                        break;
+                    }
+
+                    if (res.data?.response?.album_appearances) {
+                        currentTracklist = res.data.response.album_appearances.map(app => ({
+                            disc_number: app.disc_number || 1,
+                            disc_track_number: app.disc_track_number || app.track_number,
+                            song_id: app.song.id
+                        }));
+                        startTrackNum = currentTracklist.reduce((max, t) => Math.max(max, t.disc_track_number || 0), 0);
+                    }
+                }
+
+                if (!failed) {
                     statusDisplay.style.color = "#007A33";
                     statusDisplay.textContent = "Tracklist updated successfully! Reloading page...";
                     setTimeout(() => {
                         window.location.reload();
                     }, 1000);
-                } else {
-                    const errText = res?.statusText || res?.error || "Unknown error";
-                    statusDisplay.style.color = "#FF1414";
-                    statusDisplay.textContent = `Error saving tracklist: ${errText}`;
-                    saveBtn.disabled = false;
-                    cancelBtn.disabled = false;
                 }
             } catch (err) {
                 statusDisplay.style.color = "#FF1414";
