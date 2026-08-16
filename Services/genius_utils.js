@@ -208,6 +208,36 @@ async function updateSongMetadata(song, payload) {
     }
 }
 
+async function updateAlbumTracklist(albumId, tracklistPayload) {
+    if (!albumId || !tracklistPayload || !Array.isArray(tracklistPayload.tracklist)) return null;
+    try {
+        const response = await geniusFetch(`https://genius.com/api/albums/${albumId}/tracklist`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Cookie": document.cookie,
+                "X-CSRF-Token": getCsrfToken(),
+                "User-Agent": "ArtworkExtractorForGenius/0.7.9 (Artwork Extractor for Genius)"
+            },
+            body: JSON.stringify({
+                tracklist: tracklistPayload.tracklist,
+                viewable_by_roles: tracklistPayload.viewable_by_roles ?? [],
+                react_album_page: tracklistPayload.react_album_page ?? true
+            })
+        });
+
+        if (!response.ok) {
+            console.error(`Error updating album tracklist: ${response.statusText}`);
+            return { ok: false, status: response.status, statusText: response.statusText };
+        }
+        const json = await response.json();
+        return { ok: true, data: json };
+    } catch (error) {
+        console.error(`Error updating album tracklist: ${error}`);
+        return { ok: false, error: error.message };
+    }
+}
+
 async function updateAlbumMetadata(album, payload) {
     if (Object.keys(payload).length === 0) return;
     try {
