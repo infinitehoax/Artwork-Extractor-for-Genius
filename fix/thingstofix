@@ -1,0 +1,603 @@
+Invalid JSON
+91 errors
+E012
+numbers cannot start with '.'
+line 330, col 5
+    ...
+    ^
+valid in JSON5, not JSON/JSONC
+
+E019
+expected digits in number
+line 330, col 6
+    ...
+     ^
+E019
+expected digit after decimal point
+line 330, col 6
+    ...
+     ^
+E012
+numbers cannot start with '.'
+line 330, col 7
+    ...
+      ^
+valid in JSON5, not JSON/JSONC
+
+E009
+expected ',' or ']' between array elements, found a number
+line 330, col 7
+    ...
+      ^
+did you forget a comma after the previous value?
+
+E019
+expected digits in number
+line 330, col 8
+    ...
+       ^
+E001
+unexpected character (0x60)
+line 331, col 1
+```
+^
+E001
+unexpected character (0x60)
+line 331, col 2
+```
+ ^
+E001
+unexpected character (0x60)
+line 331, col 3
+```
+  ^
+E001
+unexpected character (0x2A)
+line 332, col 1
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+^
+E001
+unexpected character (0x28)
+line 332, col 2
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+ ^
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 3
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+  ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'The'
+line 332, col 3
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+  ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 7
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+      ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'repeating'
+line 332, col 7
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+      ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 17
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'tracks'
+line 332, col 17
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 24
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                       ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'follow'
+line 332, col 24
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                       ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 31
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                              ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'the'
+line 332, col 31
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                              ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 35
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                  ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'exact'
+line 332, col 35
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                  ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 41
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                        ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'structure'
+line 332, col 41
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                        ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 51
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                  ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'mapped'
+line 332, col 51
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                  ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 58
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                         ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'out'
+line 332, col 58
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                         ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 62
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                             ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'above'
+line 332, col 62
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                             ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 68
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                   ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'across'
+line 332, col 68
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                   ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 75
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                          ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'all'
+line 332, col 75
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                          ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found a number
+line 332, col 79
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                              ^
+did you forget a comma after the previous value?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 83
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                  ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'tracks'
+line 332, col 83
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                  ^
+bare words are not values — did you mean a quoted string?
+
+E003
+unexpected identifier 'with'
+line 332, col 91
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                          ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 96
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                               ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'individual'
+line 332, col 96
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                               ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 107
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                          ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'track'
+line 332, col 107
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                          ^
+bare words are not values — did you mean a quoted string?
+
+E019
+expected digits in number
+line 332, col 112
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                               ^
+E009
+expected ',' or ']' between array elements, found a number
+line 332, col 112
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                               ^
+did you forget a comma after the previous value?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 113
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'level'
+line 332, col 113
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 119
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                      ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'overrides'
+line 332, col 119
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                      ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 129
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'applied'
+line 332, col 129
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 137
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                        ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'precisely'
+line 332, col 137
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                        ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 147
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                  ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'as'
+line 332, col 147
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                  ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 332, col 150
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                     ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'documented'
+line 332, col 150
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                     ^
+bare words are not values — did you mean a quoted string?
+
+E012
+numbers cannot start with '.'
+line 332, col 160
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                               ^
+valid in JSON5, not JSON/JSONC
+
+E009
+expected ',' or ']' between array elements, found a number
+line 332, col 160
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                               ^
+did you forget a comma after the previous value?
+
+E019
+expected digits in number
+line 332, col 161
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                                ^
+E001
+unexpected character (0x29)
+line 332, col 161
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                                ^
+E001
+unexpected character (0x2A)
+line 332, col 162
+*(The repeating tracks follow the exact structure mapped out above across all 288 tracks, with individual track-level overrides applied precisely as documented.)*
+                                                                                                                                                                 ^
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 1
+Here is the complete JSON structure for all 288 tracks:
+^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'Here'
+line 334, col 1
+Here is the complete JSON structure for all 288 tracks:
+^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 6
+Here is the complete JSON structure for all 288 tracks:
+     ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'is'
+line 334, col 6
+Here is the complete JSON structure for all 288 tracks:
+     ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 9
+Here is the complete JSON structure for all 288 tracks:
+        ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'the'
+line 334, col 9
+Here is the complete JSON structure for all 288 tracks:
+        ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 13
+Here is the complete JSON structure for all 288 tracks:
+            ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'complete'
+line 334, col 13
+Here is the complete JSON structure for all 288 tracks:
+            ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 22
+Here is the complete JSON structure for all 288 tracks:
+                     ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'JSON'
+line 334, col 22
+Here is the complete JSON structure for all 288 tracks:
+                     ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 27
+Here is the complete JSON structure for all 288 tracks:
+                          ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'structure'
+line 334, col 27
+Here is the complete JSON structure for all 288 tracks:
+                          ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 37
+Here is the complete JSON structure for all 288 tracks:
+                                    ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'for'
+line 334, col 37
+Here is the complete JSON structure for all 288 tracks:
+                                    ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 41
+Here is the complete JSON structure for all 288 tracks:
+                                        ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'all'
+line 334, col 41
+Here is the complete JSON structure for all 288 tracks:
+                                        ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found a number
+line 334, col 45
+Here is the complete JSON structure for all 288 tracks:
+                                            ^
+did you forget a comma after the previous value?
+
+E009
+expected ',' or ']' between array elements, found an identifier
+line 334, col 49
+Here is the complete JSON structure for all 288 tracks:
+                                                ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'tracks'
+line 334, col 49
+Here is the complete JSON structure for all 288 tracks:
+                                                ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found ':'
+line 334, col 55
+Here is the complete JSON structure for all 288 tracks:
+                                                      ^
+did you forget a comma after the previous value?
+
+E005
+expected a value, found ':'
+line 334, col 55
+Here is the complete JSON structure for all 288 tracks:
+                                                      ^
+E001
+unexpected character (0x60)
+line 336, col 1
+```json
+^
+E001
+unexpected character (0x60)
+line 336, col 2
+```json
+ ^
+E001
+unexpected character (0x60)
+line 336, col 3
+```json
+  ^
+E009
+expected ',' or ']' between array elements, found an identifier
+line 336, col 4
+```json
+   ^
+did you forget a comma after the previous value?
+
+E003
+unexpected identifier 'json'
+line 336, col 4
+```json
+   ^
+bare words are not values — did you mean a quoted string?
+
+E009
+expected ',' or ']' between array elements, found '{'
+line 337, col 1
+{
+^
+did you forget a comma after the previous value?
+
+E006
+unclosed array, expected ']'
+line 628, col 2
+}
+ ^
+E006
+unclosed object, expected '}'
+line 628, col 2
+}
+ ^
