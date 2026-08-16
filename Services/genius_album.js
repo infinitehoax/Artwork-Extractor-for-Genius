@@ -6886,6 +6886,67 @@ chrome.storage.local.get([
                     throw new Error('Invalid JSON format: expected an object.');
                 }
 
+                const artistCache = new Map();
+                const roleCache = new Map();
+                const tagCache = new Map();
+
+                async function resolveArtistQueryCached(query) {
+                    if (!query) return null;
+                    let key = '';
+                    if (typeof query === 'object') {
+                        if (query.id && (query.name || query.label)) {
+                            return { id: query.id, name: query.name || query.label };
+                        }
+                        key = (query.name || query.label || query.id || '').toString().trim().toLowerCase();
+                    } else {
+                        key = String(query).trim().toLowerCase();
+                    }
+                    if (!key) return null;
+                    if (artistCache.has(key)) return artistCache.get(key);
+
+                    const resolved = await resolveArtistQuery(query);
+                    if (resolved) artistCache.set(key, resolved);
+                    return resolved;
+                }
+
+                async function resolveRoleQueryCached(query) {
+                    if (!query) return null;
+                    let key = '';
+                    if (typeof query === 'object') {
+                        if (query.id && (query.label || query.name)) {
+                            return { id: query.id, label: query.label || query.name };
+                        }
+                        key = (query.label || query.name || query.id || '').toString().trim().toLowerCase();
+                    } else {
+                        key = String(query).trim().toLowerCase();
+                    }
+                    if (!key) return null;
+                    if (roleCache.has(key)) return roleCache.get(key);
+
+                    const resolved = await resolveRoleQuery(query);
+                    if (resolved) roleCache.set(key, resolved);
+                    return resolved;
+                }
+
+                async function resolveTagQueryCached(query) {
+                    if (!query) return null;
+                    let key = '';
+                    if (typeof query === 'object') {
+                        if (query.id && typeof query.id === 'number' && query.name) {
+                            return { id: query.id, name: query.name };
+                        }
+                        key = (query.name || query.id || '').toString().trim().toLowerCase();
+                    } else {
+                        key = String(query).trim().toLowerCase();
+                    }
+                    if (!key) return null;
+                    if (tagCache.has(key)) return tagCache.get(key);
+
+                    const resolved = await resolveTagQuery(query);
+                    if (resolved) tagCache.set(key, resolved);
+                    return resolved;
+                }
+
                 function clearTagListDOM(fieldName) {
                     const inputs = document.querySelectorAll(`input[name="${fieldName}"]`);
                     inputs.forEach(input => {
@@ -6916,6 +6977,18 @@ chrome.storage.local.get([
                     });
                 }
 
+                function clearPreviousAdditionalRoles() {
+                    const subSectionCreditsContainer = document.querySelector('.sub_section_credits_container') || document.querySelector('form');
+                    if (subSectionCreditsContainer) {
+                        const existingSubSections = subSectionCreditsContainer.querySelectorAll('[data-index]');
+                        existingSubSections.forEach(el => el.remove());
+                    }
+                    creditsState.additionalRolesArray = [];
+                    creditsState.artistRolesArray = [];
+                    creditsState.additionalCreditsArray = [];
+                    creditsState.roleIndex = 0;
+                }
+
                 let tracksArray = null;
                 if (Array.isArray(data.tracks)) {
                     tracksArray = data.tracks;
@@ -6936,8 +7009,8 @@ chrome.storage.local.get([
                 if (Array.isArray(primaryArtistsSource)) {
                     creditsState.primaryArtistsArray = [];
                     for (const item of primaryArtistsSource) {
-                        const resolved = await resolveArtistQuery(item);
-                        if (resolved && !creditsState.primaryArtistsArray.some(a => a.id === resolved.id)) {
+                        const resolved = await resolveArtistQueryCached(item);
+                        if (resolved && !creditsState.primaryArtistsArray.some(a => (a.id && a.id === resolved.id) || (a.name && a.name === resolved.name))) {
                             creditsState.primaryArtistsArray.push(resolved);
                         }
                     }
@@ -6947,8 +7020,8 @@ chrome.storage.local.get([
                 if (Array.isArray(featuredArtistsSource)) {
                     creditsState.featuredArtistsArray = [];
                     for (const item of featuredArtistsSource) {
-                        const resolved = await resolveArtistQuery(item);
-                        if (resolved && !creditsState.featuredArtistsArray.some(a => a.id === resolved.id)) {
+                        const resolved = await resolveArtistQueryCached(item);
+                        if (resolved && !creditsState.featuredArtistsArray.some(a => (a.id && a.id === resolved.id) || (a.name && a.name === resolved.name))) {
                             creditsState.featuredArtistsArray.push(resolved);
                         }
                     }
@@ -6958,8 +7031,8 @@ chrome.storage.local.get([
                 if (Array.isArray(producersSource)) {
                     creditsState.producersArray = [];
                     for (const item of producersSource) {
-                        const resolved = await resolveArtistQuery(item);
-                        if (resolved && !creditsState.producersArray.some(a => a.id === resolved.id)) {
+                        const resolved = await resolveArtistQueryCached(item);
+                        if (resolved && !creditsState.producersArray.some(a => (a.id && a.id === resolved.id) || (a.name && a.name === resolved.name))) {
                             creditsState.producersArray.push(resolved);
                         }
                     }
@@ -6969,8 +7042,8 @@ chrome.storage.local.get([
                 if (Array.isArray(writersSource)) {
                     creditsState.writersArray = [];
                     for (const item of writersSource) {
-                        const resolved = await resolveArtistQuery(item);
-                        if (resolved && !creditsState.writersArray.some(a => a.id === resolved.id)) {
+                        const resolved = await resolveArtistQueryCached(item);
+                        if (resolved && !creditsState.writersArray.some(a => (a.id && a.id === resolved.id) || (a.name && a.name === resolved.name))) {
                             creditsState.writersArray.push(resolved);
                         }
                     }
@@ -6980,12 +7053,54 @@ chrome.storage.local.get([
                 if (Array.isArray(tagsSource)) {
                     creditsState.secondaryTagsArray = [];
                     for (const item of tagsSource) {
-                        const resolved = await resolveTagQuery(item);
-                        if (resolved && !creditsState.secondaryTagsArray.some(t => t.id === resolved.id)) {
+                        const resolved = await resolveTagQueryCached(item);
+                        if (resolved && !creditsState.secondaryTagsArray.some(t => (t.id && t.id === resolved.id) || (t.name && t.name === resolved.name))) {
                             creditsState.secondaryTagsArray.push(resolved);
                         }
                     }
                     renderTagsForField(creditsState.secondaryTagsArray, 'tags');
+                }
+
+                const additionalGroupsMap = new Map();
+
+                async function addAdditionalCreditToGroup(creditGroup, songIdsSet) {
+                    const roleQuery = creditGroup.role || creditGroup.label;
+                    const artistsQueries = creditGroup.artists || creditGroup.artist;
+                    if (!roleQuery) return;
+
+                    const resolvedRole = await resolveRoleQueryCached(roleQuery);
+                    if (!resolvedRole) return;
+
+                    const resolvedArtists = [];
+                    if (Array.isArray(artistsQueries)) {
+                        for (const q of artistsQueries) {
+                            const res = await resolveArtistQueryCached(q);
+                            if (res && !resolvedArtists.some(a => (a.id && a.id === res.id) || (a.name && a.name === res.name))) {
+                                resolvedArtists.push(res);
+                            }
+                        }
+                    } else if (artistsQueries) {
+                        const res = await resolveArtistQueryCached(artistsQueries);
+                        if (res) resolvedArtists.push(res);
+                    }
+
+                    const roleKey = String(resolvedRole.id || resolvedRole.label).trim().toLowerCase();
+                    const artistsKey = resolvedArtists
+                        .map(a => String(a.id || a.name).trim().toLowerCase())
+                        .sort()
+                        .join('|');
+                    const groupKey = `${roleKey}:::${artistsKey}`;
+
+                    if (additionalGroupsMap.has(groupKey)) {
+                        const group = additionalGroupsMap.get(groupKey);
+                        songIdsSet.forEach(id => group.songIds.add(String(id)));
+                    } else {
+                        additionalGroupsMap.set(groupKey, {
+                            role: resolvedRole,
+                            artists: resolvedArtists,
+                            songIds: new Set(Array.from(songIdsSet).map(id => String(id)))
+                        });
+                    }
                 }
 
                 if (tracksArray) {
@@ -7031,7 +7146,13 @@ chrome.storage.local.get([
                         }
                     });
 
+                    let trackCounter = 0;
                     for (const trackData of tracksArray) {
+                        trackCounter++;
+                        if (trackCounter % 10 === 0) {
+                            await new Promise(r => setTimeout(r, 0));
+                        }
+
                         const trackNum = trackData.track ?? trackData.track_number ?? trackData.number;
                         let targetSongId = null;
 
@@ -7063,8 +7184,8 @@ chrome.storage.local.get([
                         if (Array.isArray(trackData.primary_artists)) {
                             const resolvedList = [];
                             for (const item of trackData.primary_artists) {
-                                const resolved = await resolveArtistQuery(item);
-                                if (resolved && !resolvedList.some(a => a.id === resolved.id)) {
+                                const resolved = await resolveArtistQueryCached(item);
+                                if (resolved && !resolvedList.some(a => (a.id && a.id === resolved.id) || (a.name && a.name === resolved.name))) {
                                     resolvedList.push(resolved);
                                 }
                             }
@@ -7074,8 +7195,8 @@ chrome.storage.local.get([
                         if (Array.isArray(trackData.featured_artists)) {
                             const resolvedList = [];
                             for (const item of trackData.featured_artists) {
-                                const resolved = await resolveArtistQuery(item);
-                                if (resolved && !resolvedList.some(a => a.id === resolved.id)) {
+                                const resolved = await resolveArtistQueryCached(item);
+                                if (resolved && !resolvedList.some(a => (a.id && a.id === resolved.id) || (a.name && a.name === resolved.name))) {
                                     resolvedList.push(resolved);
                                 }
                             }
@@ -7085,8 +7206,8 @@ chrome.storage.local.get([
                         if (Array.isArray(trackData.producers)) {
                             const resolvedList = [];
                             for (const item of trackData.producers) {
-                                const resolved = await resolveArtistQuery(item);
-                                if (resolved && !resolvedList.some(a => a.id === resolved.id)) {
+                                const resolved = await resolveArtistQueryCached(item);
+                                if (resolved && !resolvedList.some(a => (a.id && a.id === resolved.id) || (a.name && a.name === resolved.name))) {
                                     resolvedList.push(resolved);
                                 }
                             }
@@ -7096,8 +7217,8 @@ chrome.storage.local.get([
                         if (Array.isArray(trackData.writers)) {
                             const resolvedList = [];
                             for (const item of trackData.writers) {
-                                const resolved = await resolveArtistQuery(item);
-                                if (resolved && !resolvedList.some(a => a.id === resolved.id)) {
+                                const resolved = await resolveArtistQueryCached(item);
+                                if (resolved && !resolvedList.some(a => (a.id && a.id === resolved.id) || (a.name && a.name === resolved.name))) {
                                     resolvedList.push(resolved);
                                 }
                             }
@@ -7107,8 +7228,8 @@ chrome.storage.local.get([
                         if (Array.isArray(trackData.tags)) {
                             const resolvedList = [];
                             for (const item of trackData.tags) {
-                                const resolved = await resolveTagQuery(item);
-                                if (resolved && !resolvedList.some(t => t.id === resolved.id)) {
+                                const resolved = await resolveTagQueryCached(item);
+                                if (resolved && !resolvedList.some(t => (t.id && t.id === resolved.id) || (t.name && t.name === resolved.name))) {
                                     resolvedList.push(resolved);
                                 }
                             }
@@ -7118,177 +7239,47 @@ chrome.storage.local.get([
                         const rawAdditional = trackData.additional_credits || trackData.custom_performances || trackData.credits;
                         if (Array.isArray(rawAdditional)) {
                             for (const creditGroup of rawAdditional) {
-                                const roleQuery = creditGroup.role || creditGroup.label;
-                                const artistsQueries = creditGroup.artists || creditGroup.artist;
-                                if (!roleQuery) continue;
-
-                                const resolvedRole = await resolveRoleQuery(roleQuery);
-                                if (!resolvedRole) continue;
-
-                                const resolvedArtists = [];
-                                if (Array.isArray(artistsQueries)) {
-                                    for (const q of artistsQueries) {
-                                        const res = await resolveArtistQuery(q);
-                                        if (res && !resolvedArtists.some(a => a.id === res.id)) {
-                                            resolvedArtists.push(res);
-                                        }
-                                    }
-                                } else if (artistsQueries) {
-                                    const res = await resolveArtistQuery(artistsQueries);
-                                    if (res) resolvedArtists.push(res);
-                                }
-
-                                const subSection = createAdditionalRoles();
-                                const subSectionCreditsContainer = document.querySelector('.sub_section_credits_container') || document.querySelector('form');
-                                if (subSectionCreditsContainer && subSectionCreditsContainer.contains(subSection) === false) {
-                                    const btn = subSectionCreditsContainer.querySelector('span');
-                                    if (btn && btn.parentNode === subSectionCreditsContainer) {
-                                        subSectionCreditsContainer.insertBefore(subSection, btn);
-                                    } else {
-                                        subSectionCreditsContainer.appendChild(subSection);
-                                    }
-                                }
-
-                                const currentRoleIdx = creditsState.roleIndex - 1;
-
-                                creditsState.additionalRolesArray[currentRoleIdx] = [resolvedRole];
-                                creditsState.artistRolesArray[currentRoleIdx] = resolvedArtists;
-                                if (!creditsState.additionalCreditsArray.includes(currentRoleIdx)) {
-                                    creditsState.additionalCreditsArray.push(currentRoleIdx);
-                                }
-
-                                const roleInputs = document.querySelectorAll(`input[name="additional_role_${currentRoleIdx}"]`);
-                                roleInputs.forEach(input => {
-                                    const wrapper = input.closest('div');
-                                    const tagsList = wrapper ? wrapper.querySelector('div') : null;
-                                    if (tagsList && typeof addTag === 'function') {
-                                        addTag(tagsList, resolvedRole, `additional_role_${currentRoleIdx}`);
-                                    }
-                                });
-
-                                const artistInputs = document.querySelectorAll(`input[name="artist_role_${currentRoleIdx}"]`);
-                                artistInputs.forEach(input => {
-                                    const wrapper = input.closest('div');
-                                    const tagsList = wrapper ? wrapper.querySelector('div') : null;
-                                    if (tagsList && typeof addTag === 'function') {
-                                        resolvedArtists.forEach(art => addTag(tagsList, art, `artist_role_${currentRoleIdx}`));
-                                    }
-                                });
-
-                                const miniTracklist = subSection.querySelector('.miniTracklist');
-                                if (miniTracklist) {
-                                    const miniCheckboxes = miniTracklist.querySelectorAll('.styled-checkbox');
-                                    miniCheckboxes.forEach(cb => {
-                                        const isMatch = cb.id === `checkbox_${currentRoleIdx}_${targetSongId}`;
-                                        if (cb.checked !== isMatch) {
-                                            cb.checked = isMatch;
-                                            cb.dispatchEvent(new Event("change"));
-                                        }
-                                    });
-                                }
+                                await addAdditionalCreditToGroup(creditGroup, new Set([targetSongId]));
                             }
                         }
                     }
-                    return;
                 }
 
-                if (Array.isArray(data.primary_artists)) {
-                    creditsState.primaryArtistsArray = [];
-                    for (const item of data.primary_artists) {
-                        const resolved = await resolveArtistQuery(item);
-                        if (resolved && !creditsState.primaryArtistsArray.some(a => a.id === resolved.id)) {
-                            creditsState.primaryArtistsArray.push(resolved);
-                        }
+                const rawTopAdditional = data.additional_credits || data.custom_performances || data.credits;
+                if (Array.isArray(rawTopAdditional)) {
+                    const allTargetSongIds = new Set(songIds.map(id => String(id)));
+                    for (const creditGroup of rawTopAdditional) {
+                        await addAdditionalCreditToGroup(creditGroup, allTargetSongIds);
                     }
-                    renderTagsForField(creditsState.primaryArtistsArray, 'primary_artists');
                 }
 
-                if (Array.isArray(data.featured_artists)) {
-                    creditsState.featuredArtistsArray = [];
-                    for (const item of data.featured_artists) {
-                        const resolved = await resolveArtistQuery(item);
-                        if (resolved && !creditsState.featuredArtistsArray.some(a => a.id === resolved.id)) {
-                            creditsState.featuredArtistsArray.push(resolved);
-                        }
-                    }
-                    renderTagsForField(creditsState.featuredArtistsArray, 'featured_artists');
-                }
+                clearPreviousAdditionalRoles();
 
-                if (Array.isArray(data.producers)) {
-                    creditsState.producersArray = [];
-                    for (const item of data.producers) {
-                        const resolved = await resolveArtistQuery(item);
-                        if (resolved && !creditsState.producersArray.some(a => a.id === resolved.id)) {
-                            creditsState.producersArray.push(resolved);
-                        }
-                    }
-                    renderTagsForField(creditsState.producersArray, 'producers');
-                }
-
-                if (Array.isArray(data.writers)) {
-                    creditsState.writersArray = [];
-                    for (const item of data.writers) {
-                        const resolved = await resolveArtistQuery(item);
-                        if (resolved && !creditsState.writersArray.some(a => a.id === resolved.id)) {
-                            creditsState.writersArray.push(resolved);
-                        }
-                    }
-                    renderTagsForField(creditsState.writersArray, 'writers');
-                }
-
-                if (Array.isArray(data.tags)) {
-                    creditsState.secondaryTagsArray = [];
-                    for (const item of data.tags) {
-                        const resolved = await resolveTagQuery(item);
-                        if (resolved && !creditsState.secondaryTagsArray.some(t => t.id === resolved.id)) {
-                            creditsState.secondaryTagsArray.push(resolved);
-                        }
-                    }
-                    renderTagsForField(creditsState.secondaryTagsArray, 'tags');
-                }
-
-                const rawAdditional = data.additional_credits || data.custom_performances || data.credits;
-                if (Array.isArray(rawAdditional)) {
-                    for (const creditGroup of rawAdditional) {
-                        const roleQuery = creditGroup.role || creditGroup.label;
-                        const artistsQueries = creditGroup.artists || creditGroup.artist;
-
-                        if (!roleQuery) continue;
-
-                        const resolvedRole = await resolveRoleQuery(roleQuery);
-                        if (!resolvedRole) continue;
-
-                        const resolvedArtists = [];
-                        if (Array.isArray(artistsQueries)) {
-                            for (const q of artistsQueries) {
-                                const res = await resolveArtistQuery(q);
-                                if (res && !resolvedArtists.some(a => a.id === res.id)) {
-                                    resolvedArtists.push(res);
-                                }
-                            }
-                        } else if (artistsQueries) {
-                            const res = await resolveArtistQuery(artistsQueries);
-                            if (res) resolvedArtists.push(res);
+                if (additionalGroupsMap.size === 0) {
+                    createAdditionalRoles();
+                } else {
+                    let groupCounter = 0;
+                    for (const group of additionalGroupsMap.values()) {
+                        groupCounter++;
+                        if (groupCounter % 5 === 0) {
+                            await new Promise(r => setTimeout(r, 0));
                         }
 
-                        let subSection = document.querySelector(`[data-index="${creditsState.roleIndex}"]`);
-                        if (!subSection) {
-                            const subSectionCreditsContainer = document.querySelector('.sub_section_credits_container') || document.querySelector('form');
-                            subSection = createAdditionalRoles();
-                            if (subSectionCreditsContainer && subSectionCreditsContainer.contains(subSection) === false) {
-                                const btn = subSectionCreditsContainer.querySelector('span');
-                                if (btn && btn.parentNode === subSectionCreditsContainer) {
-                                    subSectionCreditsContainer.insertBefore(subSection, btn);
-                                } else {
-                                    subSectionCreditsContainer.appendChild(subSection);
-                                }
+                        const subSection = createAdditionalRoles();
+                        const subSectionCreditsContainer = document.querySelector('.sub_section_credits_container') || document.querySelector('form');
+                        if (subSectionCreditsContainer && subSectionCreditsContainer.contains(subSection) === false) {
+                            const btn = subSectionCreditsContainer.querySelector('span');
+                            if (btn && btn.parentNode === subSectionCreditsContainer) {
+                                subSectionCreditsContainer.insertBefore(subSection, btn);
+                            } else {
+                                subSectionCreditsContainer.appendChild(subSection);
                             }
                         }
 
                         const currentRoleIdx = creditsState.roleIndex - 1;
 
-                        creditsState.additionalRolesArray[currentRoleIdx] = [resolvedRole];
-                        creditsState.artistRolesArray[currentRoleIdx] = resolvedArtists;
+                        creditsState.additionalRolesArray[currentRoleIdx] = [group.role];
+                        creditsState.artistRolesArray[currentRoleIdx] = group.artists;
                         if (!creditsState.additionalCreditsArray.includes(currentRoleIdx)) {
                             creditsState.additionalCreditsArray.push(currentRoleIdx);
                         }
@@ -7298,7 +7289,7 @@ chrome.storage.local.get([
                             const wrapper = input.closest('div');
                             const tagsList = wrapper ? wrapper.querySelector('div') : null;
                             if (tagsList && typeof addTag === 'function') {
-                                addTag(tagsList, resolvedRole, `additional_role_${currentRoleIdx}`);
+                                addTag(tagsList, group.role, `additional_role_${currentRoleIdx}`);
                             }
                         });
 
@@ -7307,9 +7298,25 @@ chrome.storage.local.get([
                             const wrapper = input.closest('div');
                             const tagsList = wrapper ? wrapper.querySelector('div') : null;
                             if (tagsList && typeof addTag === 'function') {
-                                resolvedArtists.forEach(art => addTag(tagsList, art, `artist_role_${currentRoleIdx}`));
+                                group.artists.forEach(art => addTag(tagsList, art, `artist_role_${currentRoleIdx}`));
                             }
                         });
+
+                        const miniTracklist = subSection.querySelector('.miniTracklist');
+                        if (miniTracklist) {
+                            const miniCheckboxes = miniTracklist.querySelectorAll('.styled-checkbox');
+                            miniCheckboxes.forEach(cb => {
+                                const match = cb.id.match(/^checkbox_\d+_(.+)$/);
+                                if (match) {
+                                    const songId = match[1];
+                                    const shouldBeChecked = group.songIds.has(String(songId));
+                                    if (cb.checked !== shouldBeChecked) {
+                                        cb.checked = shouldBeChecked;
+                                        cb.dispatchEvent(new Event("change"));
+                                    }
+                                }
+                            });
+                        }
                     }
                 }
             }
