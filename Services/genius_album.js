@@ -4227,13 +4227,13 @@ chrome.storage.local.get([
                 for (let i = 0; i < mainSongIds.length; i++) {
                     const songId = mainSongIds[i];
                     const existingSongData = songDataAlbum.find(song => Number(song.id) === Number(songId));
-                    const trackCredits = creditsState.trackCreditsMap?.[songId] || {};
+                    const trackCredits = creditsState.trackCreditsMap?.[songId] || creditsState.trackCreditsMap?.[String(songId)] || creditsState.trackCreditsMap?.[Number(songId)] || {};
 
-                    const songPrimaryArtists = (trackCredits.primaryArtistsArray !== undefined ? trackCredits.primaryArtistsArray : creditsState.primaryArtistsArray).map(a => ({ id: a.id, name: a.name }));
-                    const songFeaturedArtists = (trackCredits.featuredArtistsArray !== undefined ? trackCredits.featuredArtistsArray : creditsState.featuredArtistsArray).map(a => ({ id: a.id, name: a.name }));
-                    const songProducers = (trackCredits.producersArray !== undefined ? trackCredits.producersArray : creditsState.producersArray).map(a => ({ id: a.id, name: a.name }));
-                    const songWriters = (trackCredits.writersArray !== undefined ? trackCredits.writersArray : creditsState.writersArray).map(a => ({ id: a.id, name: a.name }));
-                    const songSecondaryTags = (trackCredits.secondaryTagsArray !== undefined ? trackCredits.secondaryTagsArray : creditsState.secondaryTagsArray).map(t => ({ id: t.id, name: t.name }));
+                    const songPrimaryArtists = (trackCredits.primaryArtistsArray !== undefined ? trackCredits.primaryArtistsArray : creditsState.primaryArtistsArray).map(a => a.id ? { id: a.id, name: a.name } : { name: a.name });
+                    const songFeaturedArtists = (trackCredits.featuredArtistsArray !== undefined ? trackCredits.featuredArtistsArray : creditsState.featuredArtistsArray).map(a => a.id ? { id: a.id, name: a.name } : { name: a.name });
+                    const songProducers = (trackCredits.producersArray !== undefined ? trackCredits.producersArray : creditsState.producersArray).map(a => a.id ? { id: a.id, name: a.name } : { name: a.name });
+                    const songWriters = (trackCredits.writersArray !== undefined ? trackCredits.writersArray : creditsState.writersArray).map(a => a.id ? { id: a.id, name: a.name } : { name: a.name });
+                    const songSecondaryTags = (trackCredits.secondaryTagsArray !== undefined ? trackCredits.secondaryTagsArray : creditsState.secondaryTagsArray).map(t => t.id ? { id: t.id, name: t.name } : { name: t.name });
 
                     const payload = await processMainPayload(
                         songId,
@@ -4343,7 +4343,7 @@ chrome.storage.local.get([
 
                                 const newRole = {
                                     label: role.label,
-                                    artists: role.artists.map(({ id, name }) => ({ id, name }))
+                                    artists: role.artists.map(a => a.id ? { id: a.id, name: a.name } : { name: a.name })
                                 };
 
                                 if (idx !== -1) {
@@ -4361,7 +4361,7 @@ chrome.storage.local.get([
 
                                 if (idx !== -1) {
                                     const existingRole = finalPerformances[idx];
-                                    const combinedArtists = [...existingRole.artists, ...role.artists].filter((artist, i, self) => self.findIndex(a => a.id === artist.id) === i);
+                                    const combinedArtists = [...existingRole.artists, ...role.artists.map(a => a.id ? { id: a.id, name: a.name } : { name: a.name })].filter((artist, i, self) => self.findIndex(a => (a.id && artist.id) ? a.id === artist.id : a.name === artist.name) === i);
 
                                     finalPerformances[idx] = {
                                         label: role.label,
@@ -4371,7 +4371,7 @@ chrome.storage.local.get([
                                 } else {
                                     finalPerformances.push({
                                         label: role.label,
-                                        artists: role.artists.map(({ id, name }) => ({ id, name }))
+                                        artists: role.artists.map(a => a.id ? { id: a.id, name: a.name } : { name: a.name })
                                     });
                                 }
                             }
@@ -4710,7 +4710,7 @@ chrome.storage.local.get([
 
                         payload.song.custom_performances.push({
                             label: role.label,
-                            artists: role.artists.map(a => ({ id: a.id, name: a.name })),
+                            artists: role.artists.map(a => a.id ? { id: a.id, name: a.name } : { name: a.name }),
                             overwrite: checkboxStates[`overwriteAdditionalRole${rowIndex}`],
                             remove: checkboxStates[`removeAdditionalRole${rowIndex}`]
                         });
@@ -6817,20 +6817,22 @@ chrome.storage.local.get([
                     return { id: query.id, name: query.name || query.label };
                 }
 
-                const queryString = String(query).trim();
+                const queryString = (typeof query === 'object' ? (query.name || query.label || query.id) : String(query)).trim();
                 if (!queryString) return null;
 
                 const results = await fetchSuggestions('artists', queryString);
-                if (!results || results.length === 0) {
-                    return { id: Date.now(), name: queryString };
+                if (results && results.length > 0) {
+                    const exactMatch = results.find(a =>
+                        (a.name && a.name.toLowerCase() === queryString.toLowerCase()) ||
+                        (a.match_metadata?.alternate_name && a.match_metadata.alternate_name.toLowerCase() === queryString.toLowerCase()) ||
+                        a.match_metadata?.exact_match === true
+                    );
+                    if (exactMatch) {
+                        return { id: exactMatch.id, name: exactMatch.name };
+                    }
                 }
 
-                const exactMatch = results.find(a => a.name && a.name.toLowerCase() === queryString.toLowerCase());
-                if (exactMatch) {
-                    return { id: exactMatch.id, name: exactMatch.name };
-                }
-
-                return { id: Date.now(), name: queryString };
+                return { name: queryString };
             }
 
             async function resolveRoleQuery(query) {
@@ -6839,17 +6841,18 @@ chrome.storage.local.get([
                     return { id: query.id, label: query.label || query.name };
                 }
 
-                const queryString = String(query).trim();
+                const queryString = (typeof query === 'object' ? (query.label || query.name || query.id) : String(query)).trim();
                 if (!queryString) return null;
 
                 const results = await fetchSuggestions('custom_performance_roles', queryString);
-                if (!results || results.length === 0) {
-                    return { id: queryString.toLowerCase().replace(/[^a-z0-9]/g, '_'), label: queryString };
-                }
-
-                const exactMatch = results.find(r => (r.label && r.label.toLowerCase() === queryString.toLowerCase()) || (r.name && r.name.toLowerCase() === queryString.toLowerCase()));
-                if (exactMatch) {
-                    return { id: exactMatch.id, label: exactMatch.label || exactMatch.name };
+                if (results && results.length > 0) {
+                    const exactMatch = results.find(r =>
+                        (r.label && r.label.toLowerCase() === queryString.toLowerCase()) ||
+                        (r.name && r.name.toLowerCase() === queryString.toLowerCase())
+                    );
+                    if (exactMatch) {
+                        return { id: exactMatch.id, label: exactMatch.label || exactMatch.name };
+                    }
                 }
 
                 return { id: queryString.toLowerCase().replace(/[^a-z0-9]/g, '_'), label: queryString };
