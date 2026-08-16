@@ -227,8 +227,19 @@ async function updateAlbumTracklist(albumId, tracklistPayload) {
         });
 
         if (!response.ok) {
-            console.error(`Error updating album tracklist: ${response.statusText}`);
-            return { ok: false, status: response.status, statusText: response.statusText };
+            let errText = response.statusText;
+            try {
+                const errJson = await response.json();
+                if (errJson?.meta?.message) {
+                    errText = `${response.status} ${errJson.meta.message}`;
+                } else {
+                    errText = `${response.status} ${response.statusText}`;
+                }
+            } catch (e) {
+                errText = `${response.status} ${response.statusText}`;
+            }
+            console.error(`Error updating album tracklist: ${errText}`);
+            return { ok: false, status: response.status, statusText: errText };
         }
         const json = await response.json();
         return { ok: true, data: json };
