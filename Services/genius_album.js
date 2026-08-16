@@ -178,7 +178,10 @@ chrome.storage.local.get([
 
             if (isGeniusAlbumUploadCover) uploadAlbumCover(albumId, albumData);
 
-            if (isGeniusAlbumEditTracklist) addTracklistCheckboxes(userData);
+            if (isGeniusAlbumEditTracklist) {
+                addTracklistCheckboxes(userData);
+                bulkAddSongsButton(albumId);
+            }
 
 
             if (isGeniusAlbumSongCreditsButton) songCreditsButtonAlbumPage(songIds);
@@ -888,6 +891,16 @@ chrome.storage.local.get([
     //////////                                TRACKLIST BUTTON                                //////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    function parseSongTitles(rawInput) {
+        if (!rawInput || typeof rawInput !== 'string') return [];
+        return rawInput
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map(line => line.replace(/^(?:(?:track\s*)?\[?\d+\]?[\.\)\-:]\s*|\d+\s*[\.\)\-:]\s*)/i, '').trim())
+            .filter(title => title.length > 0);
+    }
+
     function addTracklistCheckboxes(userData) {
         console.log("Run function addTracklistCheckboxes()");
 
@@ -981,9 +994,24 @@ chrome.storage.local.get([
             const hideToggle = createToggle("Hide");
             const unreleasedToggle = createToggle("Unreleased");
 
+            const bulkBtn = document.createElement("button");
+            bulkBtn.type = "button";
+            bulkBtn.textContent = "Bulk Add";
+            Object.assign(bulkBtn.style, {
+                padding: "0.125rem 0.5rem",
+                border: "1px solid rgb(0, 0, 0)",
+                borderRadius: "1rem",
+                backgroundColor: "white",
+                fontSize: "0.75rem",
+                fontWeight: "100",
+                cursor: "pointer"
+            });
+            bulkBtn.addEventListener("click", () => openBulkAddModal(getId("album")));
+
             const hasHidePermission = userData?.roles_for_display.includes("transcriber") || userData?.roles_for_display.includes("editor");
             if (hasHidePermission) containerDiv.appendChild(hideToggle);
             containerDiv.appendChild(unreleasedToggle);
+            containerDiv.appendChild(bulkBtn);
 
             header.insertAdjacentElement("afterend", containerDiv);
         });
@@ -991,6 +1019,280 @@ chrome.storage.local.get([
         observer.observe(document.body, {
             childList: true,
             subtree: true
+        });
+    }
+
+    function bulkAddSongsButton(albumId) {
+        console.log("Run function bulkAddSongsButton()");
+
+        const { stickyToolbarLeft, smallButton } = getDomElements();
+        if (!stickyToolbarLeft || !smallButton) return;
+
+        const existingButton = [...stickyToolbarLeft.querySelectorAll("button")].find(btn => btn.textContent.trim() === "Bulk Add Songs");
+        if (existingButton) existingButton.remove();
+
+        const bulkButton = document.createElement("button");
+        bulkButton.type = "button";
+        bulkButton.className = smallButton.className;
+        bulkButton.textContent = "Bulk Add Songs";
+        stickyToolbarLeft.appendChild(bulkButton);
+
+        bulkButton.addEventListener("click", () => openBulkAddModal(albumId));
+    }
+
+    function openBulkAddModal(albumId) {
+        const currentAlbumId = albumId || getId("album");
+        if (!currentAlbumId) {
+            alert("Album ID not found.");
+            return;
+        }
+
+        document.body.style.overflow = "hidden";
+
+        const overlay = document.createElement("div");
+        Object.assign(overlay.style, {
+            position: "fixed",
+            inset: "0",
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: "10000"
+        });
+
+        const modal = document.createElement("div");
+        Object.assign(modal.style, {
+            backgroundColor: "#fff",
+            width: "80%",
+            maxWidth: "700px",
+            maxHeight: "90vh",
+            padding: "1.75rem",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+            borderRadius: "4px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            fontFamily: `Programme, "Programme Pan", Arial, sans-serif`
+        });
+
+        const titleHeader = document.createElement("div");
+        titleHeader.textContent = "Bulk Add Songs to Tracklist";
+        Object.assign(titleHeader.style, {
+            fontSize: "1.25rem",
+            fontWeight: "bold",
+            color: "#000"
+        });
+
+        const description = document.createElement("div");
+        description.textContent = "Paste track titles line by line (numbered or clean list). Prefixes like '1. ', 'Track 001 - ', '1)' will be stripped automatically.";
+        Object.assign(description.style, {
+            fontSize: "0.85rem",
+            color: "#555"
+        });
+
+        const modeContainer = document.createElement("div");
+        Object.assign(modeContainer.style, {
+            display: "flex",
+            gap: "1.5rem",
+            alignItems: "center",
+            fontSize: "0.85rem"
+        });
+
+        const modeAppendLabel = document.createElement("label");
+        Object.assign(modeAppendLabel.style, { display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer" });
+        const modeAppendRadio = document.createElement("input");
+        modeAppendRadio.type = "radio";
+        modeAppendRadio.name = "bulk_add_mode";
+        modeAppendRadio.value = "append";
+        modeAppendRadio.checked = true;
+        modeAppendLabel.appendChild(modeAppendRadio);
+        modeAppendLabel.appendChild(document.createTextNode("Append to existing tracklist"));
+
+        const modeReplaceLabel = document.createElement("label");
+        Object.assign(modeReplaceLabel.style, { display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer" });
+        const modeReplaceRadio = document.createElement("input");
+        modeReplaceRadio.type = "radio";
+        modeReplaceRadio.name = "bulk_add_mode";
+        modeReplaceRadio.value = "replace";
+        modeReplaceLabel.appendChild(modeReplaceRadio);
+        modeReplaceLabel.appendChild(document.createTextNode("Replace entire tracklist"));
+
+        modeContainer.appendChild(modeAppendLabel);
+        modeContainer.appendChild(modeReplaceLabel);
+
+        const textarea = document.createElement("textarea");
+        textarea.placeholder = "1. intro\n2. Fuck you mean?\n3. Track 057\n...";
+        Object.assign(textarea.style, {
+            width: "100%",
+            height: "220px",
+            padding: "0.75rem",
+            boxSizing: "border-box",
+            border: "1px solid #000",
+            fontFamily: "monospace, monospace",
+            fontSize: "0.85rem",
+            resize: "vertical",
+            outline: "none"
+        });
+
+        const previewStatus = document.createElement("div");
+        previewStatus.textContent = "0 tracks detected";
+        Object.assign(previewStatus.style, {
+            fontSize: "0.85rem",
+            fontWeight: "bold",
+            color: "#333"
+        });
+
+        textarea.addEventListener("input", () => {
+            const parsed = parseSongTitles(textarea.value);
+            previewStatus.textContent = `${parsed.length} track${parsed.length === 1 ? "" : "s"} detected`;
+        });
+
+        const statusDisplay = document.createElement("div");
+        Object.assign(statusDisplay.style, {
+            fontSize: "0.85rem",
+            minHeight: "1.2rem",
+            fontWeight: "bold"
+        });
+
+        const buttonRow = document.createElement("div");
+        Object.assign(buttonRow.style, {
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "0.75rem",
+            marginTop: "0.5rem"
+        });
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.textContent = "Cancel";
+        Object.assign(cancelBtn.style, {
+            padding: "0.5rem 1.25rem",
+            border: "1px solid #000",
+            borderRadius: "1.25rem",
+            backgroundColor: "#fff",
+            cursor: "pointer",
+            fontSize: "0.85rem"
+        });
+
+        function closeModal() {
+            document.body.style.overflow = "";
+            overlay.remove();
+        }
+
+        cancelBtn.addEventListener("click", closeModal);
+
+        const saveBtn = document.createElement("button");
+        saveBtn.type = "button";
+        saveBtn.textContent = "Save Tracklist";
+        Object.assign(saveBtn.style, {
+            padding: "0.5rem 1.25rem",
+            border: "1px solid #000",
+            borderRadius: "1.25rem",
+            backgroundColor: "#24c609",
+            color: "#fff",
+            cursor: "pointer",
+            fontSize: "0.85rem",
+            fontWeight: "bold"
+        });
+
+        saveBtn.addEventListener("click", async () => {
+            const titles = parseSongTitles(textarea.value);
+            if (!titles.length) {
+                statusDisplay.style.color = "#FF1414";
+                statusDisplay.textContent = "Please enter at least one valid song title.";
+                return;
+            }
+
+            saveBtn.disabled = true;
+            cancelBtn.disabled = true;
+            statusDisplay.style.color = "#333";
+            statusDisplay.textContent = "Fetching current album tracklist...";
+
+            try {
+                const { album: freshAlbumData } = await getApiData(currentAlbumId, "albums");
+                if (!freshAlbumData) {
+                    throw new Error("Could not fetch album details.");
+                }
+
+                const appearances = freshAlbumData.album_appearances || [];
+
+                let tracklist = [];
+                const isAppend = modeAppendRadio.checked;
+
+                if (isAppend) {
+                    tracklist = appearances.map(app => ({
+                        disc_number: app.disc_number || 1,
+                        disc_track_number: app.track_number,
+                        song_id: app.song.id
+                    }));
+
+                    let maxTrackNum = tracklist.reduce((max, t) => Math.max(max, t.disc_track_number || 0), 0);
+
+                    titles.forEach((title, idx) => {
+                        tracklist.push({
+                            disc_number: 1,
+                            disc_track_number: maxTrackNum + idx + 1,
+                            title: title,
+                            lyrics_state: "incomplete"
+                        });
+                    });
+                } else {
+                    titles.forEach((title, idx) => {
+                        tracklist.push({
+                            disc_number: 1,
+                            disc_track_number: idx + 1,
+                            title: title,
+                            lyrics_state: "incomplete"
+                        });
+                    });
+                }
+
+                statusDisplay.textContent = `Saving ${titles.length} track${titles.length === 1 ? "" : "s"} to Genius...`;
+
+                const res = await updateAlbumTracklist(currentAlbumId, {
+                    tracklist,
+                    viewable_by_roles: [],
+                    react_album_page: true
+                });
+
+                if (res && res.ok) {
+                    statusDisplay.style.color = "#007A33";
+                    statusDisplay.textContent = "Tracklist updated successfully! Reloading page...";
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    const errText = res?.statusText || res?.error || "Unknown error";
+                    statusDisplay.style.color = "#FF1414";
+                    statusDisplay.textContent = `Error saving tracklist: ${errText}`;
+                    saveBtn.disabled = false;
+                    cancelBtn.disabled = false;
+                }
+            } catch (err) {
+                statusDisplay.style.color = "#FF1414";
+                statusDisplay.textContent = `Error: ${err.message}`;
+                saveBtn.disabled = false;
+                cancelBtn.disabled = false;
+            }
+        });
+
+        buttonRow.appendChild(cancelBtn);
+        buttonRow.appendChild(saveBtn);
+
+        modal.appendChild(titleHeader);
+        modal.appendChild(description);
+        modal.appendChild(modeContainer);
+        modal.appendChild(textarea);
+        modal.appendChild(previewStatus);
+        modal.appendChild(statusDisplay);
+        modal.appendChild(buttonRow);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) closeModal();
         });
     }
 
