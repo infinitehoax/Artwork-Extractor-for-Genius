@@ -1,12 +1,103 @@
-chrome.storage.local.get(['Services/youtubemusic.js', 'isYouTubeMusicCopyCoverPlaylist', 'isYouTubeMusicCopyCoverChannels', 'isYouTubeMusicCopyLink', 'isYouTubeMusicPopup', 'isYouTubeMusicSaveImage'], function (result) {
+chrome.storage.local.get(['Services/youtubemusic.js', 'isYouTubeMusicCopyCoverPlaylist', 'isYouTubeMusicCopyCoverChannels', 'isYouTubeMusicCopyTracklist', 'isYouTubeMusicCopyLink', 'isYouTubeMusicPopup', 'isYouTubeMusicSaveImage'], function (result) {
     const isYouTubeMusicCopyCoverPlaylist = result.isYouTubeMusicCopyCoverPlaylist !== undefined ? result.isYouTubeMusicCopyCoverPlaylist : true;
     const isYouTubeMusicCopyCoverChannels = result.isYouTubeMusicCopyCoverChannels !== undefined ? result.isYouTubeMusicCopyCoverChannels : true;
+    const isYouTubeMusicCopyTracklist = result.isYouTubeMusicCopyTracklist !== undefined ? result.isYouTubeMusicCopyTracklist : true;
     const isYouTubeMusicCopyLink = result.isYouTubeMusicCopyLink !== undefined ? result.isYouTubeMusicCopyLink : true;
     const isYouTubeMusicPopup = result.isYouTubeMusicPopup !== undefined ? result.isYouTubeMusicPopup : true;
     const isYouTubeMusicSaveImage = result.isYouTubeMusicSaveImage !== undefined ? result.isYouTubeMusicSaveImage : false;
 
     if (result['Services/youtubemusic.js'] === false) {
         return;
+    }
+
+    function cleanTrackTitle(title) {
+        if (!title) return '';
+        let cleaned = title.replace(/[\u200B\u00A0]/g, ' ');
+        cleaned = cleaned.replace(/\s*[\(\[]\s*(?:feat|ft|featuring)\b\.?\s+.*?[\)\]]/gi, '');
+        cleaned = cleaned.replace(/\s+(?:feat|ft|featuring)\b\.?\s+[^\(\)\[\]]*$/gi, '');
+        return cleaned.replace(/\s+/g, ' ').trim();
+    }
+
+    // Copy Tracklist Button for Playlists / Albums
+    function addCopyTracklistButton() {
+        const copyCoverBtn = document.getElementById('copy-cover-button-playlist');
+        const thumbnail = document.querySelector('.thumbnail.style-scope.ytmusic-responsive-header-renderer');
+        const targetParent = copyCoverBtn ? copyCoverBtn.parentNode : (thumbnail ? thumbnail.parentNode : null);
+        const insertAfterEl = copyCoverBtn || thumbnail;
+
+        if (targetParent && insertAfterEl && !document.getElementById('copy-tracklist-button-playlist')) {
+            const copyTracklistBtn = document.createElement('button');
+            copyTracklistBtn.id = 'copy-tracklist-button-playlist';
+            copyTracklistBtn.innerText = 'Copy Tracklist';
+
+            Object.assign(copyTracklistBtn.style, {
+                height: '42px',
+                width: '200px',
+                margin: '10px auto',
+                borderRadius: '500px',
+                padding: '2px 11px',
+                border: '1px solid #f1f1f1',
+                backgroundColor: '#f1f1f1',
+                color: '#030303',
+                fontSize: '20px',
+                lineHeight: '20px',
+                fontWeight: 'bold',
+                display: 'block',
+                position: 'relative',
+                whiteSpace: 'nowrap',
+                fontFamily: 'Roboto, sans-serif',
+                textAlign: 'center',
+                verticalAlign: 'initial',
+                userSelect: 'none',
+                boxSizing: 'border-box'
+            });
+
+            copyTracklistBtn.addEventListener('click', async (event) => {
+                event.preventDefault();
+                sessionStorage.setItem('mouseX', event.clientX);
+                sessionStorage.setItem('mouseY', event.clientY);
+
+                const items = document.querySelectorAll('ytmusic-responsive-list-item-renderer');
+                const trackLines = [];
+
+                items.forEach((item, index) => {
+                    const indexEl = item.querySelector('.index.style-scope.ytmusic-responsive-list-item-renderer, yt-formatted-string.index');
+                    const trackNo = indexEl ? indexEl.innerText.trim() : (index + 1);
+
+                    const titleEl = item.querySelector('.title-column .title, yt-formatted-string.title');
+                    let rawTitle = titleEl ? (titleEl.getAttribute('title') || titleEl.querySelector('a')?.innerText || titleEl.innerText.trim()) : '';
+
+                    const cleanedTitle = cleanTrackTitle(rawTitle);
+                    if (cleanedTitle) {
+                        trackLines.push(`${trackNo}. ${cleanedTitle}`);
+                    }
+                });
+
+                if (trackLines.length > 0) {
+                    const tracklistText = trackLines.join('\n');
+                    await navigator.clipboard.writeText(tracklistText);
+
+                    const mouseX = parseInt(sessionStorage.getItem("mouseX"), 10);
+                    const mouseY = parseInt(sessionStorage.getItem("mouseY"), 10);
+                    const design = {
+                        position: "fixed",
+                        backgroundColor: "#f1f1f1",
+                        color: "#030303",
+                        borderRadius: "500px",
+                        padding: "10px 20px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        zIndex: "9999",
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+                        top: `${mouseY + 40}px`,
+                        left: `${mouseX + 50}px`
+                    };
+                    if (isYouTubeMusicPopup) showPopupNotification(design);
+                }
+            });
+
+            targetParent.insertBefore(copyTracklistBtn, insertAfterEl.nextSibling);
+        }
     }
 
     // Copy Cover Button for Playlists
@@ -243,8 +334,9 @@ chrome.storage.local.get(['Services/youtubemusic.js', 'isYouTubeMusicCopyCoverPl
         const playlistUrlPattern = /^https:\/\/music\.youtube\.com\/playlist/;
         const channelUrlPattern = /^https:\/\/music\.youtube\.com\/channel/;
 
-        if (playlistUrlPattern.test(window.location.href)) {
+        if (playlistUrlPattern.test(window.location.href) || document.querySelector('ytmusic-two-column-browse-results-renderer[page-type="MUSIC_PAGE_TYPE_ALBUM"]')) {
             if (isYouTubeMusicCopyCoverPlaylist) addCopyCoverButtonPlaylists();
+            if (isYouTubeMusicCopyTracklist) addCopyTracklistButton();
             if (isYouTubeMusicCopyLink) addCopyLinkButtons();
         }
         if (channelUrlPattern.test(window.location.href)) {
