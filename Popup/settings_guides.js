@@ -216,6 +216,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const isGeniusSongTranslationButton = document.getElementById('isGeniusSongTranslationButton').checked;
         const isGeniusSongShellyButton = document.getElementById('isGeniusSongShellyButton').checked;
         const isGeniusSongCleanupMetadataButton = document.getElementById('isGeniusSongCleanupMetadataButton').checked;
+        const isGeniusSongAdvancedJson = document.getElementById('isGeniusSongAdvancedJson').checked;
         const isGeniusSongLanguageButton = document.getElementById('isGeniusSongLanguageButton').checked;
         const isGeniusSongCleanupButton = document.getElementById('isGeniusSongCleanupButton').checked;
         const isGeniusSongSectionsButtons = document.getElementById('isGeniusSongSectionsButtons').checked;
@@ -339,6 +340,7 @@ document.addEventListener('DOMContentLoaded', function () {
             isGeniusSongTranslationButton: isGeniusSongTranslationButton,
             isGeniusSongShellyButton: isGeniusSongShellyButton,
             isGeniusSongCleanupMetadataButton: isGeniusSongCleanupMetadataButton,
+            isGeniusSongAdvancedJson: isGeniusSongAdvancedJson,
             isGeniusSongLanguageButton: isGeniusSongLanguageButton,
             isGeniusSongCleanupButton: isGeniusSongCleanupButton,
             isGeniusSongSectionsButtons: isGeniusSongSectionsButtons,
@@ -478,6 +480,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('isGeniusSongTranslationButton').checked = result.isGeniusSongTranslationButton !== undefined ? result.isGeniusSongTranslationButton : true;
         document.getElementById('isGeniusSongShellyButton').checked = result.isGeniusSongShellyButton !== undefined ? result.isGeniusSongShellyButton : true;
         document.getElementById('isGeniusSongCleanupMetadataButton').checked = result.isGeniusSongCleanupMetadataButton !== undefined ? result.isGeniusSongCleanupMetadataButton : true;
+        document.getElementById('isGeniusSongAdvancedJson').checked = result.isGeniusSongAdvancedJson !== undefined ? result.isGeniusSongAdvancedJson : true;
         document.getElementById('isGeniusSongLanguageButton').checked = result.isGeniusSongLanguageButton !== undefined ? result.isGeniusSongLanguageButton : true;
         document.getElementById('isGeniusSongCleanupButton').checked = result.isGeniusSongCleanupButton !== undefined ? result.isGeniusSongCleanupButton : true;
         document.getElementById('isGeniusSongSectionsButtons').checked = result.isGeniusSongSectionsButtons !== undefined ? result.isGeniusSongSectionsButtons : true;
@@ -602,6 +605,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('isGeniusSongTranslationButton').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongShellyButton').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongCleanupMetadataButton').addEventListener('change', saveSettings);
+    document.getElementById('isGeniusSongAdvancedJson').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongLanguageButton').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongCleanupButton').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongSectionsButtons').addEventListener('change', saveSettings);
