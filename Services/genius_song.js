@@ -9,6 +9,7 @@ chrome.storage.local.get([
     'isGeniusSongTranslationButton',
     'isGeniusSongShellyButton',
     'isGeniusSongCleanupMetadataButton',
+    'isGeniusSongAdvancedJson',
     'isGeniusSongLanguageButton',
     'isGeniusSongCleanupButton',
     'isGeniusSongSectionsButtons',
@@ -35,6 +36,7 @@ chrome.storage.local.get([
     const isGeniusSongTranslationButton = result.isGeniusSongTranslationButton ?? true;
     const isGeniusSongShellyButton = result.isGeniusSongShellyButton ?? true;
     const isGeniusSongCleanupMetadataButton = result.isGeniusSongCleanupMetadataButton ?? true;
+    const isGeniusSongAdvancedJson = result.isGeniusSongAdvancedJson ?? true;
     const isGeniusSongLanguageButton = result.isGeniusSongLanguageButton ?? true;
     const isGeniusSongCleanupButton = result.isGeniusSongCleanupButton ?? true;
     const isGeniusSongSectionsButtons = result.isGeniusSongSectionsButtons ?? true;
@@ -97,6 +99,7 @@ chrome.storage.local.get([
         if (isGeniusSongSongPage) checkSongCover(songData)
 
         if (isGeniusSongFollowButton) addFollowButton();
+        if (isGeniusSongAdvancedJson) addAdvancedJsonButton(songData);
         if (isGeniusSongTranslationButton) addTranslationButton(songData);
         if (isGeniusSongShellyButton) addShellyButton(songData);
 
@@ -424,6 +427,443 @@ chrome.storage.local.get([
         }
     }
 
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////                             ADVANCED JSON BUTTON                                //////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function addAdvancedJsonButton(songData) {
+        console.log("Run function addAdvancedJsonButton()");
+
+        const { stickytoolbarLeft, editmetadatabutonSmallbutton } = getDomElements();
+        if (!stickytoolbarLeft || !editmetadatabutonSmallbutton) return;
+
+        if (document.getElementById("advanced-json-song-button")) return;
+
+        const jsonButton = document.createElement('button');
+        jsonButton.id = "advanced-json-song-button";
+        jsonButton.className = editmetadatabutonSmallbutton.className.replace("EditMetadataButton", "AdvancedJsonButton");
+        jsonButton.type = 'button';
+        jsonButton.textContent = "Advanced JSON";
+
+        jsonButton.addEventListener('click', () => {
+            openAdvancedJsonModal(songData);
+        });
+
+        stickytoolbarLeft.appendChild(jsonButton);
+    }
+
+    function cleanYouTubeUrl(url) {
+        if (!url) return "";
+        try {
+            const parsed = new URL(url);
+            if (parsed.hostname.includes("youtube.com")) {
+                const v = parsed.searchParams.get("v");
+                return v ? `https://www.youtube.com/watch?v=${v}` : url;
+            } else if (parsed.hostname.includes("youtu.be")) {
+                const v = parsed.pathname.replace("/", "");
+                return v ? `https://www.youtube.com/watch?v=${v}` : url;
+            }
+        } catch {
+            return url;
+        }
+        return url;
+    }
+
+    function buildSongJsonPayload(songData) {
+        return {
+            primary_tag_id: songData.primary_tag ? songData.primary_tag.id : null,
+            featured_artists: (songData.featured_artists || []).map(a => ({
+                id: a.id,
+                name: a.name,
+                secondary: null,
+                secondaryPrefix: "a.k.a"
+            })),
+            writer_artists: (songData.writer_artists || []).map(a => ({
+                id: a.id,
+                name: a.name,
+                secondary: null,
+                secondaryPrefix: "a.k.a"
+            })),
+            producer_artists: (songData.producer_artists || []).map(a => ({
+                id: a.id,
+                name: a.name,
+                secondary: null,
+                secondaryPrefix: "a.k.a"
+            })),
+            custom_performances: (songData.custom_performances || []).map(c => ({
+                label: c.label,
+                artists: (c.artists || []).map(a => ({
+                    id: a.id,
+                    name: a.name,
+                    secondary: null,
+                    secondaryPrefix: "a.k.a"
+                }))
+            })),
+            tags: (songData.tags || []).map(t => ({ id: t.id, name: t.name })),
+            language: songData.language || null,
+            youtube_url: songData.youtube_url || "",
+            youtube_start: songData.youtube_start || "0",
+            soundcloud_url: songData.soundcloud_url || "",
+            release_date_components: songData.release_date_components || {
+                year: null,
+                month: null,
+                day: null
+            }
+        };
+    }
+
+    async function resolveArtistQuery(query) {
+        if (!query) return null;
+        if (typeof query === 'object' && query.id && (query.name || query.label)) {
+            return { id: query.id, name: query.name || query.label, secondary: null, secondaryPrefix: "a.k.a" };
+        }
+
+        const queryString = (typeof query === 'object' ? (query.name || query.label || query.id) : String(query)).trim();
+        if (!queryString) return null;
+
+        const results = await fetchSuggestions('artists', queryString);
+        if (results && results.length > 0) {
+            const exactMatch = results.find(a =>
+                (a.name && a.name.toLowerCase() === queryString.toLowerCase()) ||
+                (a.match_metadata?.alternate_name && a.match_metadata.alternate_name.toLowerCase() === queryString.toLowerCase()) ||
+                a.match_metadata?.exact_match === true
+            );
+            if (exactMatch) {
+                return { id: exactMatch.id, name: exactMatch.name, secondary: null, secondaryPrefix: "a.k.a" };
+            }
+        }
+
+        return { name: queryString, secondary: null, secondaryPrefix: "a.k.a" };
+    }
+
+    async function resolveRoleQuery(query) {
+        if (!query) return null;
+        if (typeof query === 'object' && (query.label || query.name)) {
+            return query.label || query.name;
+        }
+
+        const queryString = (typeof query === 'object' ? (query.label || query.name || query.id) : String(query)).trim();
+        if (!queryString) return null;
+
+        const results = await fetchSuggestions('custom_performance_roles', queryString);
+        if (results && results.length > 0) {
+            const exactMatch = results.find(r =>
+                (r.label && r.label.toLowerCase() === queryString.toLowerCase()) ||
+                (r.name && r.name.toLowerCase() === queryString.toLowerCase())
+            );
+            if (exactMatch) {
+                return exactMatch.label || exactMatch.name;
+            }
+        }
+
+        return queryString;
+    }
+
+    async function resolveTagQuery(query) {
+        if (!query) return null;
+        if (typeof query === 'object' && query.id && typeof query.id === 'number' && query.name) {
+            return { id: query.id, name: query.name };
+        }
+
+        const queryString = (typeof query === 'object' ? (query.name || query.id) : String(query)).trim();
+        if (!queryString) return null;
+
+        const results = await fetchSuggestions('tags', queryString);
+        if (results && results.length > 0) {
+            const exactMatch = results.find(t => t.name && t.name.toLowerCase() === queryString.toLowerCase());
+            if (exactMatch && typeof exactMatch.id === 'number') {
+                return { id: exactMatch.id, name: exactMatch.name };
+            }
+            const validResult = results.find(t => typeof t.id === 'number');
+            if (validResult) {
+                return { id: validResult.id, name: validResult.name };
+            }
+        }
+        return null;
+    }
+
+    async function processAndResolveSongPayload(payload) {
+        const processed = { ...payload };
+
+        if (processed.youtube_url) {
+            processed.youtube_url = cleanYouTubeUrl(processed.youtube_url);
+        }
+
+        if (Array.isArray(processed.featured_artists)) {
+            const resolved = [];
+            for (const a of processed.featured_artists) {
+                const res = await resolveArtistQuery(a);
+                if (res) resolved.push(res);
+            }
+            processed.featured_artists = resolved;
+        }
+
+        if (Array.isArray(processed.writer_artists)) {
+            const resolved = [];
+            for (const a of processed.writer_artists) {
+                const res = await resolveArtistQuery(a);
+                if (res) resolved.push(res);
+            }
+            processed.writer_artists = resolved;
+        }
+
+        if (Array.isArray(processed.producer_artists)) {
+            const resolved = [];
+            for (const a of processed.producer_artists) {
+                const res = await resolveArtistQuery(a);
+                if (res) resolved.push(res);
+            }
+            processed.producer_artists = resolved;
+        }
+
+        if (Array.isArray(processed.custom_performances)) {
+            const resolvedCustom = [];
+            for (const c of processed.custom_performances) {
+                const roleLabel = await resolveRoleQuery(c.label || c.role);
+                const artists = [];
+                const rawArtists = c.artists || c.artist || [];
+                const artistsList = Array.isArray(rawArtists) ? rawArtists : [rawArtists];
+                for (const a of artistsList) {
+                    const res = await resolveArtistQuery(a);
+                    if (res) artists.push(res);
+                }
+                if (roleLabel) {
+                    resolvedCustom.push({ label: roleLabel, artists });
+                }
+            }
+            processed.custom_performances = resolvedCustom;
+        }
+
+        if (Array.isArray(processed.tags)) {
+            const resolved = [];
+            for (const t of processed.tags) {
+                const res = await resolveTagQuery(t);
+                if (res) resolved.push(res);
+            }
+            processed.tags = resolved;
+        }
+
+        return processed;
+    }
+
+    function openAdvancedJsonModal(initialSongData) {
+        if (document.getElementById("advanced-json-song-modal-overlay")) return;
+
+        document.body.style.overflow = "hidden";
+
+        const overlay = document.createElement("div");
+        overlay.id = "advanced-json-song-modal-overlay";
+        Object.assign(overlay.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: "99999"
+        });
+
+        const modal = document.createElement("div");
+        Object.assign(modal.style, {
+            backgroundColor: "#fff",
+            width: "80%",
+            maxWidth: "750px",
+            maxHeight: "90vh",
+            padding: "1.75rem",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+            borderRadius: "4px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            fontFamily: `Programme, "Programme Pan", Arial, sans-serif`
+        });
+
+        const titleHeader = document.createElement("div");
+        titleHeader.textContent = "Edit Metadata (JSON Payload)";
+        Object.assign(titleHeader.style, {
+            fontSize: "1.25rem",
+            fontWeight: "bold",
+            color: "#000"
+        });
+
+        const headerRow = document.createElement("div");
+        Object.assign(headerRow.style, {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "1rem"
+        });
+
+        const description = document.createElement("div");
+        description.textContent = "Import, edit, and save raw song metadata JSON directly to Genius.";
+        Object.assign(description.style, {
+            fontSize: "0.85rem",
+            color: "#555"
+        });
+
+        const loadCurrentBtn = document.createElement("button");
+        loadCurrentBtn.type = "button";
+        loadCurrentBtn.textContent = "Load Current";
+        Object.assign(loadCurrentBtn.style, {
+            padding: "0.35rem 0.75rem",
+            border: "1px solid #000",
+            borderRadius: "1rem",
+            backgroundColor: "#fff",
+            fontSize: "0.75rem",
+            cursor: "pointer",
+            fontWeight: "bold",
+            whiteSpace: "nowrap"
+        });
+
+        headerRow.appendChild(description);
+        headerRow.appendChild(loadCurrentBtn);
+
+        const textareaWrapper = document.createElement("div");
+        Object.assign(textareaWrapper.style, {
+            border: "1px solid #000",
+            padding: "4px",
+            boxSizing: "border-box"
+        });
+
+        const textarea = document.createElement("textarea");
+        textarea.id = "song_advanced_json_textarea";
+        textarea.spellcheck = false;
+        Object.assign(textarea.style, {
+            width: "100%",
+            height: "350px",
+            fontFamily: "monospace, monospace",
+            fontSize: "0.85rem",
+            padding: "8px",
+            boxSizing: "border-box",
+            border: "none",
+            outline: "none",
+            resize: "vertical",
+            backgroundColor: "#1e1e1e",
+            color: "#9cdcfe"
+        });
+
+        textarea.value = JSON.stringify(buildSongJsonPayload(initialSongData), null, 2);
+        textareaWrapper.appendChild(textarea);
+
+        const statusDisplay = document.createElement("div");
+        Object.assign(statusDisplay.style, {
+            fontSize: "0.85rem",
+            minHeight: "1.2rem",
+            fontWeight: "bold"
+        });
+
+        const buttonRow = document.createElement("div");
+        Object.assign(buttonRow.style, {
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "0.75rem",
+            marginTop: "0.5rem"
+        });
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.textContent = "Cancel";
+        Object.assign(cancelBtn.style, {
+            padding: "0.5rem 1.25rem",
+            border: "1px solid #000",
+            borderRadius: "1.25rem",
+            backgroundColor: "#fff",
+            cursor: "pointer",
+            fontSize: "0.85rem"
+        });
+
+        const saveBtn = document.createElement("button");
+        saveBtn.type = "button";
+        saveBtn.textContent = "Save to Genius";
+        Object.assign(saveBtn.style, {
+            padding: "0.5rem 1.25rem",
+            border: "1px solid #000",
+            borderRadius: "1.25rem",
+            backgroundColor: "#24c609",
+            color: "#fff",
+            cursor: "pointer",
+            fontSize: "0.85rem",
+            fontWeight: "bold"
+        });
+
+        function closeModal() {
+            document.body.style.overflow = "";
+            overlay.remove();
+        }
+
+        cancelBtn.addEventListener("click", closeModal);
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) closeModal();
+        });
+
+        loadCurrentBtn.addEventListener("click", async () => {
+            loadCurrentBtn.disabled = true;
+            statusDisplay.style.color = "#333";
+            statusDisplay.textContent = "Fetching current song data from Genius...";
+
+            try {
+                const freshData = await getApiData(initialSongData.id, "songs");
+                if (freshData && freshData.song) {
+                    textarea.value = JSON.stringify(buildSongJsonPayload(freshData.song), null, 2);
+                    statusDisplay.style.color = "#007A33";
+                    statusDisplay.textContent = "Loaded fresh song metadata from Genius.";
+                } else {
+                    throw new Error("Could not retrieve song data.");
+                }
+            } catch (err) {
+                statusDisplay.style.color = "#FF1414";
+                statusDisplay.textContent = `Error loading song data: ${err.message}`;
+            } finally {
+                loadCurrentBtn.disabled = false;
+            }
+        });
+
+        saveBtn.addEventListener("click", async () => {
+            statusDisplay.style.color = "#333";
+            statusDisplay.textContent = "Validating and processing JSON...";
+            saveBtn.disabled = true;
+            cancelBtn.disabled = true;
+            loadCurrentBtn.disabled = true;
+
+            try {
+                const parsed = JSON.parse(textarea.value);
+                statusDisplay.textContent = "Resolving artists, roles, and tags...";
+                const finalPayload = await processAndResolveSongPayload(parsed);
+
+                statusDisplay.textContent = "Saving song metadata to Genius...";
+                await updateSongMetadata(initialSongData, finalPayload);
+
+                statusDisplay.style.color = "#007A33";
+                statusDisplay.textContent = "Metadata saved successfully! Reloading page...";
+                setTimeout(() => {
+                    window.location.reload();
+                }, 750);
+            } catch (err) {
+                statusDisplay.style.color = "#FF1414";
+                statusDisplay.textContent = `Error saving metadata: ${err.message}`;
+                saveBtn.disabled = false;
+                cancelBtn.disabled = false;
+                loadCurrentBtn.disabled = false;
+            }
+        });
+
+        buttonRow.appendChild(cancelBtn);
+        buttonRow.appendChild(saveBtn);
+
+        modal.appendChild(titleHeader);
+        modal.appendChild(headerRow);
+        modal.appendChild(textareaWrapper);
+        modal.appendChild(statusDisplay);
+        modal.appendChild(buttonRow);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     //////////                                 FOLLOW BUTTON                                  //////////
