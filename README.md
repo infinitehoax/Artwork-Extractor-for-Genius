@@ -57,7 +57,7 @@ It's primarily built to quickly grab cover artwork URLs (and optionally convert/
   - DistroKid: `*.distrokid.com`
 - Adds a popup UI to enable/disable each supported site script per-browser.
 - Adds a settings page with lots of per-site toggles (copy cover, copy tracklist, popups, conversions, hosting options, etc.).
-- On Genius pages, it can also add various editing/utility helpers (song/album/artist tools).
+- On Genius pages, it can also add various editing/utility helpers (song/album/artist tools), including an **Advanced JSON** metadata editor for single song pages and batch credit import for album pages.
 
 ## 🚀 Installation
 
@@ -120,6 +120,8 @@ For local development, you will need to populate them.
 5. Use the injected buttons (e.g. **Copy Cover** / **Save Cover**).
 
 **Dark mode:** Click the extension popup header to toggle dark/light mode. The preference is saved per-browser.
+
+**Advanced JSON Editing & Credit Import:** Single song pages feature an **Advanced JSON** button that opens a raw metadata editor, allowing direct JSON inspection, query resolution, and updates to Genius. Album pages support batch credit importing via JSON. See [JSON_GUIDE.md](JSON_GUIDE.md) for full JSON schema specifications, field definitions, and examples.
 
 ### 📝 Development notes
 
