@@ -326,6 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const isYandexMusicHostFilestack = document.getElementById('isYandexMusicHostFilestack').checked;
         const isYouTubeMusicCopyCoverPlaylist = document.getElementById('isYouTubeMusicCopyCoverPlaylist').checked;
         const isYouTubeMusicCopyCoverChannel = document.getElementById('isYouTubeMusicCopyCoverChannel').checked;
+        const isYouTubeMusicCopyTracklist = document.getElementById('isYouTubeMusicCopyTracklist').checked;
         const isYouTubeMusicCopyLink = document.getElementById('isYouTubeMusicCopyLink').checked;
         const isYouTubeMusicPopup = document.getElementById('isYouTubeMusicPopup').checked;
         const isYouTubeMusicSaveImage = document.getElementById('isYouTubeMusicSaveImage').checked;
@@ -450,6 +451,7 @@ document.addEventListener('DOMContentLoaded', function () {
             isYandexMusicHostFilestack: isYandexMusicHostFilestack,
             isYouTubeMusicCopyCoverPlaylist: isYouTubeMusicCopyCoverPlaylist,
             isYouTubeMusicCopyCoverChannel: isYouTubeMusicCopyCoverChannel,
+            isYouTubeMusicCopyTracklist: isYouTubeMusicCopyTracklist,
             isYouTubeMusicCopyLink: isYouTubeMusicCopyLink,
             isYouTubeMusicPopup: isYouTubeMusicPopup,
             isYouTubeMusicSaveImage: isYouTubeMusicSaveImage,
@@ -469,7 +471,7 @@ document.addEventListener('DOMContentLoaded', function () {
         'isSpotifyCopyTracklist', 'isSpotifyCopyCover', 'isSpotifyCopyArtist', 'isSpotifyPopup', 'isSpotifySidebar', 'isSpotifyRightClick', 'isSpotifyConvertPNG', 'isSpotifySaveImage', 'isSpotifyHostImgBB', 'isSpotifyHostFilestack',
         'isTidalCopyCover', 'isTidalCopyArtist', 'isTidalCopyCredits', 'isTidalPopup', 'isTidalHighlighting', 'isTidalPremiumPopup', 'isTidalConvertPNG', 'isTidalSaveImage', 'isTidalHostImgBB', 'isTidalHostFilestack',
         'isYandexMusicCopyCover', 'isYandexMusicPopup', 'isYandexMusicConvertPNG', 'isYandexMusicSaveImage', 'isYandexMusicHostImgBB', 'isYandexMusicHostFilestack',
-        'isYouTubeMusicCopyCoverPlaylist', 'isYouTubeMusicCopyCoverChannel', 'isYouTubeMusicCopyLink', 'isYouTubeMusicPopup', 'isYouTubeMusicSaveImage',
+        'isYouTubeMusicCopyCoverPlaylist', 'isYouTubeMusicCopyCoverChannel', 'isYouTubeMusicCopyTracklist', 'isYouTubeMusicCopyLink', 'isYouTubeMusicPopup', 'isYouTubeMusicSaveImage',
     ], function (result) {
         document.getElementById('isGeniusSongSongPage').checked = result.isGeniusSongSongPage !== undefined ? result.isGeniusSongSongPage : true;
         document.getElementById('isGeniusSongSongPageZwsp').checked = result.isGeniusSongSongPageZwsp !== undefined ? result.isGeniusSongSongPageZwsp : true;
@@ -590,6 +592,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('isYandexMusicHostFilestack').checked = result.isYandexMusicHostFilestack !== undefined ? result.isYandexMusicHostFilestack : false;
         document.getElementById('isYouTubeMusicCopyCoverPlaylist').checked = result.isYouTubeMusicCopyCoverPlaylist !== undefined ? result.isYouTubeMusicCopyCoverPlaylist : true;
         document.getElementById('isYouTubeMusicCopyCoverChannel').checked = result.isYouTubeMusicCopyCoverChannel !== undefined ? result.isYouTubeMusicCopyCoverChannel : true;
+        document.getElementById('isYouTubeMusicCopyTracklist').checked = result.isYouTubeMusicCopyTracklist !== undefined ? result.isYouTubeMusicCopyTracklist : true;
         document.getElementById('isYouTubeMusicCopyLink').checked = result.isYouTubeMusicCopyLink !== undefined ? result.isYouTubeMusicCopyLink : true;
         document.getElementById('isYouTubeMusicPopup').checked = result.isYouTubeMusicPopup !== undefined ? result.isYouTubeMusicPopup : true;
         document.getElementById('isYouTubeMusicSaveImage').checked = result.isYouTubeMusicSaveImage !== undefined ? result.isYouTubeMusicSaveImage : false;
@@ -715,6 +718,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('isYandexMusicHostFilestack').addEventListener('change', saveSettings);
     document.getElementById('isYouTubeMusicCopyCoverPlaylist').addEventListener('change', saveSettings);
     document.getElementById('isYouTubeMusicCopyCoverChannel').addEventListener('change', saveSettings);
+    document.getElementById('isYouTubeMusicCopyTracklist').addEventListener('change', saveSettings);
     document.getElementById('isYouTubeMusicCopyLink').addEventListener('change', saveSettings);
     document.getElementById('isYouTubeMusicPopup').addEventListener('change', saveSettings);
     document.getElementById('isYouTubeMusicSaveImage').addEventListener('change', saveSettings);
