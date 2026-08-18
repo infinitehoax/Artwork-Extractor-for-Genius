@@ -194,6 +194,17 @@
             color: #ccc;
         }
 
+        body.dark-mode textarea {
+            background-color: #2e2e2e;
+            color: #f5f5f5;
+            border-color: #888;
+        }
+
+        body.dark-mode .bulk-stats-bar {
+            background-color: #2e2e2e !important;
+            color: #f5f5f5 !important;
+        }
+
         label {
             font-size: 18px;
         }
@@ -284,6 +295,7 @@
             <li><a href="#" data-id="genius-song">Song Page</a></li>
             <li><a href="#" data-id="genius-album">Album Page</a></li>
             <li><a href="#" data-id="genius-artist">Artist Page</a></li>
+            <li><a href="#" data-id="genius-bulk-iq">Bulk Award IQ</a></li>
         </ul>
         <span class="disabled">Streaming Services</span>
         <ul>
@@ -1495,6 +1507,7 @@
         </div>
     </div>
     </div>
+    <script src="../Services/genius_utils.js"></script>
     <script src="settings_guides.js" defer> </script>
 </body>
 
