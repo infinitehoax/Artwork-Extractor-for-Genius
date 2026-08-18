@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     function showContent(id) {
-        var contents = document.querySelectorAll('.content div');
+        var contents = document.querySelectorAll('.content > div');
         contents.forEach(content => content.style.display = 'none');
         var element = document.getElementById(id);
         if (element) {
@@ -722,4 +722,1308 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('isYouTubeMusicCopyLink').addEventListener('change', saveSettings);
     document.getElementById('isYouTubeMusicPopup').addEventListener('change', saveSettings);
     document.getElementById('isYouTubeMusicSaveImage').addEventListener('change', saveSettings);
+});
+
+
+// Genius Bulk Award Transcription IQ Logic
+const PROVIDED_SONGS_LIST = [
+  {
+    "artist": "255 & Victony",
+    "title": "A Lot",
+    "url": "https://genius.com/255-and-victony-a-lot-lyrics"
+  },
+  {
+    "artist": "ARI LEE",
+    "title": "Obligation",
+    "url": "https://genius.com/Ari-lee-obligation-lyrics"
+  },
+  {
+    "artist": "Abstraktt & Oladapo",
+    "title": "Odeshi",
+    "url": "https://genius.com/Abstraktt-and-oladapo-odeshi-lyrics"
+  },
+  {
+    "artist": "Al Xapo, Benzoo, Shallipopi & EeQue",
+    "title": "SNOKONOKO II",
+    "url": "https://genius.com/Al-xapo-benzoo-shallipopi-and-eeque-snokonoko-ii-lyrics"
+  },
+  {
+    "artist": "Alex Mather",
+    "title": "SOMETIMES I\u2019M WRONG",
+    "url": "https://genius.com/Alex-mather-sometimes-im-wrong-lyrics"
+  },
+  {
+    "artist": "Ali (St. Lunatics)",
+    "title": "Passin\u2019 Me By",
+    "url": "https://genius.com/Ali-st-lunatics-passin-me-by-lyrics"
+  },
+  {
+    "artist": "Ang\u00e9lique Kidjo",
+    "title": "No Stopping Us",
+    "url": "https://genius.com/Angelique-kidjo-no-stopping-us-lyrics"
+  },
+  {
+    "artist": "Ang\u00e9lique Kidjo",
+    "title": "Oyaya",
+    "url": "https://genius.com/Angelique-kidjo-oyaya-lyrics"
+  },
+  {
+    "artist": "Ang\u00e9lique Kidjo",
+    "title": "I\u2019m On Fire",
+    "url": "https://genius.com/Angelique-kidjo-im-on-fire-lyrics"
+  },
+  {
+    "artist": "Ang\u00e9lique Kidjo",
+    "title": "You Can",
+    "url": "https://genius.com/Angelique-kidjo-you-can-lyrics"
+  },
+  {
+    "artist": "Ang\u00e9lique Kidjo",
+    "title": "For Me",
+    "url": "https://genius.com/Angelique-kidjo-for-me-lyrics"
+  },
+  {
+    "artist": "Ang\u00e9lique Kidjo",
+    "title": "Big Heart",
+    "url": "https://genius.com/Angelique-kidjo-big-heart-lyrics"
+  },
+  {
+    "artist": "Anointed",
+    "title": "Gonna Lift Your Name (Remix)",
+    "url": "https://genius.com/Anointed-gonna-lift-your-name-remix-lyrics"
+  },
+  {
+    "artist": "Anti World Gangstars, FATBOY E, Reeplay, ODUMODUBLVCK, SHAGBA & HOTYCE",
+    "title": "Antiworld",
+    "url": "https://genius.com/Anti-world-gangstars-fatboy-e-reeplay-odumodublvck-shagba-and-hotyce-antiworld-lyrics"
+  },
+  {
+    "artist": "B.J. Thomas",
+    "title": "Bright Nights",
+    "url": "https://genius.com/Bj-thomas-bright-nights-lyrics"
+  },
+  {
+    "artist": "BU Double",
+    "title": "Bussin\u2019",
+    "url": "https://genius.com/Bu-double-bussin-lyrics"
+  },
+  {
+    "artist": "Bassline Club Vibes & Club Winners",
+    "title": "Holdin Me",
+    "url": "https://genius.com/Bassline-club-vibes-and-club-winners-holdin-me-lyrics"
+  },
+  {
+    "artist": "Betty Jean Robinson",
+    "title": "Someone To Care",
+    "url": "https://genius.com/Betty-jean-robinson-someone-to-care-lyrics"
+  },
+  {
+    "artist": "Blaqbonez",
+    "title": "IKEBE*",
+    "url": "https://genius.com/Blaqbonez-ikebe-lyrics"
+  },
+  {
+    "artist": "Blu & August Fanon",
+    "title": "Dance",
+    "url": "https://genius.com/Blu-and-august-fanon-dance-lyrics"
+  },
+  {
+    "artist": "Bluenax & Amarni (NGA)",
+    "title": "INDIAN AMAPIANO",
+    "url": "https://genius.com/Bluenax-and-amarni-nga-indian-amapiano-lyrics"
+  },
+  {
+    "artist": "Boj & NO11",
+    "title": "Understand Me",
+    "url": "https://genius.com/Boj-and-no11-understand-me-lyrics"
+  },
+  {
+    "artist": "CDQ & Islambo",
+    "title": "Labubu",
+    "url": "https://genius.com/Cdq-and-islambo-labubu-lyrics"
+  },
+  {
+    "artist": "Caitlin and Brent & Brent Amaker & The Rodeo",
+    "title": "Victimless Crime",
+    "url": "https://genius.com/Caitlin-and-brent-and-brent-amaker-and-the-rodeo-victimless-crime-lyrics"
+  },
+  {
+    "artist": "Caitlin and Brent & Brent Amaker & The Rodeo",
+    "title": "Silver Screen",
+    "url": "https://genius.com/Caitlin-and-brent-and-brent-amaker-and-the-rodeo-silver-screen-lyrics"
+  },
+  {
+    "artist": "Caitlin and Brent & Brent Amaker & The Rodeo",
+    "title": "Nightcall",
+    "url": "https://genius.com/Caitlin-and-brent-and-brent-amaker-and-the-rodeo-nightcall-lyrics"
+  },
+  {
+    "artist": "Caitlin and Brent & Brent Amaker & The Rodeo",
+    "title": "Pleasure In The Pain",
+    "url": "https://genius.com/Caitlin-and-brent-and-brent-amaker-and-the-rodeo-pleasure-in-the-pain-lyrics"
+  },
+  {
+    "artist": "Caitlin and Brent & Brent Amaker & The Rodeo",
+    "title": "Intoxicated",
+    "url": "https://genius.com/Caitlin-and-brent-and-brent-amaker-and-the-rodeo-intoxicated-lyrics"
+  },
+  {
+    "artist": "Caitlin and Brent & Brent Amaker & The Rodeo",
+    "title": "Come Out And Play",
+    "url": "https://genius.com/Caitlin-and-brent-and-brent-amaker-and-the-rodeo-come-out-and-play-lyrics"
+  },
+  {
+    "artist": "Carl & Pearl Butler",
+    "title": "I\u2019m So Afraid Of Losing You Again",
+    "url": "https://genius.com/Carl-and-pearl-butler-im-so-afraid-of-losing-you-again-lyrics"
+  },
+  {
+    "artist": "Carl & Pearl Butler",
+    "title": "Paul\u2019s Saloon",
+    "url": "https://genius.com/Carl-and-pearl-butler-pauls-saloon-lyrics"
+  },
+  {
+    "artist": "Carl & Pearl Butler",
+    "title": "The One You Slip Around With",
+    "url": "https://genius.com/Carl-and-pearl-butler-the-one-you-slip-around-with-lyrics"
+  },
+  {
+    "artist": "Carman",
+    "title": "Just Like My Jesus",
+    "url": "https://genius.com/Carman-just-like-my-jesus-lyrics"
+  },
+  {
+    "artist": "Carman",
+    "title": "We Have Come To Worship Him",
+    "url": "https://genius.com/Carman-we-have-come-to-worship-him-lyrics"
+  },
+  {
+    "artist": "Chrisnxtdoor",
+    "title": "Give Me All Of You",
+    "url": "https://genius.com/Chrisnxtdoor-give-me-all-of-you-lyrics"
+  },
+  {
+    "artist": "Citizen Papes",
+    "title": "Powerful",
+    "url": "https://genius.com/Citizen-papes-powerful-lyrics"
+  },
+  {
+    "artist": "Confetti",
+    "title": "Gold Star Kid",
+    "url": "https://genius.com/Confetti-gold-star-kid-lyrics"
+  },
+  {
+    "artist": "Cowboy Copas",
+    "title": "Don\u2019t Let The Deal Go Down",
+    "url": "https://genius.com/Cowboy-copas-dont-let-the-deal-go-down-lyrics"
+  },
+  {
+    "artist": "Cowboy Copas",
+    "title": "Why Should I Want Her",
+    "url": "https://genius.com/Cowboy-copas-why-should-i-want-her-lyrics"
+  },
+  {
+    "artist": "Cowboy Copas",
+    "title": "I\u2019ve Grown So Used To You",
+    "url": "https://genius.com/Cowboy-copas-ive-grown-so-used-to-you-lyrics"
+  },
+  {
+    "artist": "Cowboy Copas",
+    "title": "I\u2019m Drifting Back To Dreamland",
+    "url": "https://genius.com/Cowboy-copas-im-drifting-back-to-dreamland-lyrics"
+  },
+  {
+    "artist": "Cowboy Copas",
+    "title": "Carbon Copy",
+    "url": "https://genius.com/Cowboy-copas-carbon-copy-lyrics"
+  },
+  {
+    "artist": "Cowboy Copas",
+    "title": "I\u2019m Glad For Your Sake",
+    "url": "https://genius.com/Cowboy-copas-im-glad-for-your-sake-lyrics"
+  },
+  {
+    "artist": "Cowboy Copas",
+    "title": "When I Lost You",
+    "url": "https://genius.com/Cowboy-copas-when-i-lost-you-lyrics"
+  },
+  {
+    "artist": "Crystal Gayle",
+    "title": "The Last Ray of Sunshine",
+    "url": "https://genius.com/Crystal-gayle-the-last-ray-of-sunshine-lyrics"
+  },
+  {
+    "artist": "DY Stone Code, Big Fearless & RayboiDC",
+    "title": "Merlin",
+    "url": "https://genius.com/Dy-stone-code-big-fearless-and-rayboidc-merlin-lyrics"
+  },
+  {
+    "artist": "Damo K & Famous Pluto",
+    "title": "Lifestyle",
+    "url": "https://genius.com/Damo-k-and-famous-pluto-lifestyle-lyrics"
+  },
+  {
+    "artist": "Dan Seals",
+    "title": "While I\u2019m Here",
+    "url": "https://genius.com/Dan-seals-while-im-here-lyrics"
+  },
+  {
+    "artist": "Datboi Smee",
+    "title": "Sexy Received",
+    "url": "https://genius.com/Datboi-smee-sexy-received-lyrics"
+  },
+  {
+    "artist": "Datboi Smee",
+    "title": "Parker Na Parker",
+    "url": "https://genius.com/Datboi-smee-parker-na-parker-lyrics"
+  },
+  {
+    "artist": "Datboi Smee",
+    "title": "Match Am",
+    "url": "https://genius.com/Datboi-smee-match-am-lyrics"
+  },
+  {
+    "artist": "Death by Denim",
+    "title": "Payback",
+    "url": "https://genius.com/Death-by-denim-payback-lyrics"
+  },
+  {
+    "artist": "Devendra Banhart & Las Cachapas Peludas",
+    "title": "Ni\u00f1a de Pelo Largo Nadando (Live in Big Sur)",
+    "url": "https://genius.com/Devendra-banhart-and-las-cachapas-peludas-nina-de-pelo-largo-nadando-live-in-big-sur-lyrics"
+  },
+  {
+    "artist": "EDDISON",
+    "title": "wrist worth sex",
+    "url": "https://genius.com/Eddison-wrist-worth-sex-lyrics"
+  },
+  {
+    "artist": "El Tonio (NGA), Mama Original & Ab stah",
+    "title": "Donate Am To Church",
+    "url": "https://genius.com/El-tonio-nga-mama-original-and-ab-stah-donate-am-to-church-lyrics"
+  },
+  {
+    "artist": "Emma Gabriel",
+    "title": "Sunrise",
+    "url": "https://genius.com/Emma-gabriel-sunrise-lyrics"
+  },
+  {
+    "artist": "Emma Goldman (Band)",
+    "title": "an introduction to real estate-induced psychosis",
+    "url": "https://genius.com/Emma-goldman-band-an-introduction-to-real-estate-induced-psychosis-lyrics"
+  },
+  {
+    "artist": "Falz",
+    "title": "Round of Applause",
+    "url": "https://genius.com/Falz-round-of-applause-lyrics"
+  },
+  {
+    "artist": "Falz",
+    "title": "Bounce",
+    "url": "https://genius.com/Falz-bounce-lyrics"
+  },
+  {
+    "artist": "Feathers (Rock)",
+    "title": "Angel In the Sky",
+    "url": "https://genius.com/Feathers-rock-angel-in-the-sky-lyrics"
+  },
+  {
+    "artist": "FirstKlaz",
+    "title": "Soyaiya",
+    "url": "https://genius.com/Firstklaz-soyaiya-lyrics"
+  },
+  {
+    "artist": "GENTLE NAIRA, IGB, Bluenax & Smokeboi",
+    "title": "Evil Jingle II",
+    "url": "https://genius.com/Gentle-naira-igb-bluenax-and-smokeboi-evil-jingle-ii-lyrics"
+  },
+  {
+    "artist": "George Riley",
+    "title": "Rain",
+    "url": "https://genius.com/George-riley-rain-lyrics"
+  },
+  {
+    "artist": "Glasxs",
+    "title": "This Is the End / Baluchi\u2019s Song",
+    "url": "https://genius.com/Glasxs-this-is-the-end-baluchis-song-lyrics"
+  },
+  {
+    "artist": "Godfrey Gad",
+    "title": "No Gree For Anybody!",
+    "url": "https://genius.com/Godfrey-gad-no-gree-for-anybody-lyrics"
+  },
+  {
+    "artist": "Heem B$F",
+    "title": "1993",
+    "url": "https://genius.com/Heem-b-f-1993-lyrics"
+  },
+  {
+    "artist": "Heem B$F",
+    "title": "Bars & Noble 2",
+    "url": "https://genius.com/Heem-b-f-bars-and-noble-2-lyrics"
+  },
+  {
+    "artist": "Iam Tongi, Tyler Cain & Johnny Reid",
+    "title": "Sunshine",
+    "url": "https://genius.com/Iam-tongi-william-tongi-tyler-cain-and-johnny-reid-sunshine-lyrics"
+  },
+  {
+    "artist": "Infinity Knives & Brian Ennals",
+    "title": "Soft Pack Shorty",
+    "url": "https://genius.com/Infinity-knives-and-brian-ennals-soft-pack-shorty-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "There\u2019s Nobody There",
+    "url": "https://genius.com/Jack-white-theres-nobody-there-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "Raising the Grain",
+    "url": "https://genius.com/Jack-white-raising-the-grain-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "You\u2019ll Never Fix Me",
+    "url": "https://genius.com/Jack-white-youll-never-fix-me-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "Nobody Knows",
+    "url": "https://genius.com/Jack-white-nobody-knows-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "I Can\u2019t Believe What I\u2019m Hearing",
+    "url": "https://genius.com/Jack-white-i-cant-believe-what-im-hearing-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "Thick as Thieves",
+    "url": "https://genius.com/Jack-white-thick-as-thieves-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "All Alone Again",
+    "url": "https://genius.com/Jack-white-all-alone-again-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "Making Contact",
+    "url": "https://genius.com/Jack-white-making-contact-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "Neighbors Blues",
+    "url": "https://genius.com/Jack-white-neighbors-blues-lyrics"
+  },
+  {
+    "artist": "Jack White",
+    "title": "She\u2019s in a Frenzy",
+    "url": "https://genius.com/Jack-white-shes-in-a-frenzy-lyrics"
+  },
+  {
+    "artist": "James Blundell",
+    "title": "Patience Wins",
+    "url": "https://genius.com/James-blundell-patience-wins-lyrics"
+  },
+  {
+    "artist": "James Blundell",
+    "title": "How To Lift A Curse",
+    "url": "https://genius.com/James-blundell-how-to-lift-a-curse-lyrics"
+  },
+  {
+    "artist": "James Blundell",
+    "title": "Red Devil Wind",
+    "url": "https://genius.com/James-blundell-red-devil-wind-lyrics"
+  },
+  {
+    "artist": "James Blundell",
+    "title": "Whiskey Tree",
+    "url": "https://genius.com/James-blundell-whiskey-tree-lyrics"
+  },
+  {
+    "artist": "James Blundell",
+    "title": "Morrison\u2019s Dog",
+    "url": "https://genius.com/James-blundell-morrisons-dog-lyrics"
+  },
+  {
+    "artist": "James Blundell",
+    "title": "Queen of The Lost Highway",
+    "url": "https://genius.com/James-blundell-queen-of-the-lost-highway-lyrics"
+  },
+  {
+    "artist": "James Blundell",
+    "title": "The World Don\u2019t Stop",
+    "url": "https://genius.com/James-blundell-the-world-dont-stop-lyrics"
+  },
+  {
+    "artist": "James Blundell & Lilly Brown",
+    "title": "One Of Those Saturday Nights",
+    "url": "https://genius.com/James-blundell-and-lilly-brown-one-of-those-saturday-nights-lyrics"
+  },
+  {
+    "artist": "James Emmanuel",
+    "title": "Obsessed",
+    "url": "https://genius.com/James-emmanuel-obsessed-lyrics"
+  },
+  {
+    "artist": "Jeremy Spencer",
+    "title": "Here Comes Charlie (With His Dancing Shoes On)",
+    "url": "https://genius.com/Jeremy-spencer-here-comes-charlie-with-his-dancing-shoes-on-lyrics"
+  },
+  {
+    "artist": "Jeremy Spencer",
+    "title": "Take A Look Around Mrs. Brown",
+    "url": "https://genius.com/Jeremy-spencer-take-a-look-around-mrs-brown-lyrics"
+  },
+  {
+    "artist": "Jon B.",
+    "title": "Ain\u2019t Nothing",
+    "url": "https://genius.com/Jon-b-aint-nothing-lyrics"
+  },
+  {
+    "artist": "Jon B.",
+    "title": "All For You",
+    "url": "https://genius.com/Jon-b-all-for-you-lyrics"
+  },
+  {
+    "artist": "Jordan Knight",
+    "title": "Your Man",
+    "url": "https://genius.com/Jordan-knight-your-man-lyrics"
+  },
+  {
+    "artist": "Jordan Knight",
+    "title": "Don\u2019t Cry",
+    "url": "https://genius.com/Jordan-knight-dont-cry-lyrics"
+  },
+  {
+    "artist": "Jordan Knight",
+    "title": "Where Is Your Heart Tonight (Acoustic)",
+    "url": "https://genius.com/Jordan-knight-where-is-your-heart-tonight-acoustic-lyrics"
+  },
+  {
+    "artist": "Josh b4l & Smur Lee",
+    "title": "Chop Am",
+    "url": "https://genius.com/Josh-b4l-and-smur-lee-chop-am-lyrics"
+  },
+  {
+    "artist": "Kapote & Harvey Sutherland",
+    "title": "Mystery (Harvey Sutherland Remix)",
+    "url": "https://genius.com/Kapote-and-harvey-sutherland-mystery-harvey-sutherland-remix-lyrics"
+  },
+  {
+    "artist": "Kay-1",
+    "title": "Juicy",
+    "url": "https://genius.com/Kay-1-juicy-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Ann Hampton Callaway",
+    "title": "Cook\u2019s Bay",
+    "url": "https://genius.com/Kenny-barron-and-ann-hampton-callaway-cooks-bay-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Catherine Russell",
+    "title": "Minor Blues Redux",
+    "url": "https://genius.com/Kenny-barron-and-catherine-russell-minor-blues-redux-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Ekep Nkwelle",
+    "title": "Sonia Braga",
+    "url": "https://genius.com/Kenny-barron-and-ekep-nkwelle-sonia-braga-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Ekep Nkwelle",
+    "title": "Illusion",
+    "url": "https://genius.com/Kenny-barron-and-ekep-nkwelle-illusion-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Jean Norris-Baylor",
+    "title": "Until Then",
+    "url": "https://genius.com/Kenny-barron-and-jean-norris-baylor-until-then-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Jean Norris-Baylor",
+    "title": "Beyond This Place",
+    "url": "https://genius.com/Kenny-barron-and-jean-norris-baylor-beyond-this-place-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Kavita Shah",
+    "title": "Lullabye",
+    "url": "https://genius.com/Kenny-barron-and-kavita-shah-lullabye-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Tyreek McDole",
+    "title": "Marie Laveau",
+    "url": "https://genius.com/Kenny-barron-and-tyreek-mcdole-marie-laveau-lyrics"
+  },
+  {
+    "artist": "Kenny Barron & Tyreek McDole",
+    "title": "Calypso",
+    "url": "https://genius.com/Kenny-barron-and-tyreek-mcdole-calypso-lyrics"
+  },
+  {
+    "artist": "Khantrast",
+    "title": "ADD - Remix",
+    "url": "https://genius.com/Khantrast-add-remix-lyrics"
+  },
+  {
+    "artist": "Kharii (USA)",
+    "title": "IDIOTIC",
+    "url": "https://genius.com/Kharii-usa-idiotic-lyrics"
+  },
+  {
+    "artist": "Kill Bill: The Rapper",
+    "title": "THE BUILDING WITH THE BLUE BUTTERFLY",
+    "url": "https://genius.com/Kill-bill-the-rapper-the-building-with-the-blue-butterfly-lyrics"
+  },
+  {
+    "artist": "Len (CAN)",
+    "title": "Threethirteen",
+    "url": "https://genius.com/Len-can-threethirteen-lyrics"
+  },
+  {
+    "artist": "Logik Tha Pro",
+    "title": "Tukay (2k)",
+    "url": "https://genius.com/Logik-tha-pro-tukay-2k-lyrics"
+  },
+  {
+    "artist": "Logik Tha Pro",
+    "title": "Legxus",
+    "url": "https://genius.com/Logik-tha-pro-legxus-lyrics"
+  },
+  {
+    "artist": "Logik Tha Pro",
+    "title": "Make I Bend",
+    "url": "https://genius.com/Logik-tha-pro-make-i-bend-lyrics"
+  },
+  {
+    "artist": "Logik Tha Pro",
+    "title": "Sapa Lemme",
+    "url": "https://genius.com/Logik-tha-pro-sapa-lemme-lyrics"
+  },
+  {
+    "artist": "Logik Tha Pro",
+    "title": "Balanced Die-Yet",
+    "url": "https://genius.com/Logik-tha-pro-balanced-die-yet-lyrics"
+  },
+  {
+    "artist": "Logik Tha Pro",
+    "title": "Make Me Trek",
+    "url": "https://genius.com/Logik-tha-pro-make-me-trek-lyrics"
+  },
+  {
+    "artist": "Logik Tha Pro",
+    "title": "Villain",
+    "url": "https://genius.com/Logik-tha-pro-villain-lyrics"
+  },
+  {
+    "artist": "Logik Tha Pro & LAMB CULTURE.",
+    "title": "E Chowque",
+    "url": "https://genius.com/Logik-tha-pro-and-lamb-culture-e-chowque-lyrics"
+  },
+  {
+    "artist": "Masterkraft",
+    "title": "To You",
+    "url": "https://genius.com/Masterkraft-to-you-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "Insignificant",
+    "url": "https://genius.com/Matt-gould-insignificant-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "Two Sides",
+    "url": "https://genius.com/Matt-gould-two-sides-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "Moment of Insight",
+    "url": "https://genius.com/Matt-gould-moment-of-insight-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "Can\u2019t Let Go",
+    "url": "https://genius.com/Matt-gould-cant-let-go-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "Disappear",
+    "url": "https://genius.com/Matt-gould-disappear-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "Give In",
+    "url": "https://genius.com/Matt-gould-give-in-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "Rock in Rushing Water",
+    "url": "https://genius.com/Matt-gould-rock-in-rushing-water-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "I Compose Myself",
+    "url": "https://genius.com/Matt-gould-i-compose-myself-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "The Game",
+    "url": "https://genius.com/Matt-gould-the-game-lyrics"
+  },
+  {
+    "artist": "Matt Gould",
+    "title": "Supernova",
+    "url": "https://genius.com/Matt-gould-supernova-lyrics"
+  },
+  {
+    "artist": "Mavo",
+    "title": "JEHOVA*",
+    "url": "https://genius.com/Mavo-jehova-lyrics"
+  },
+  {
+    "artist": "Mavo",
+    "title": "EFREBO*",
+    "url": "https://genius.com/Mavo-efrebo-lyrics"
+  },
+  {
+    "artist": "Mike Ryan",
+    "title": "Say Goodbye",
+    "url": "https://genius.com/Mike-ryan-say-goodbye-lyrics"
+  },
+  {
+    "artist": "NITAH",
+    "title": "Back Seat",
+    "url": "https://genius.com/Nitah-back-seat-lyrics"
+  },
+  {
+    "artist": "Nina Caroline",
+    "title": "Outsider",
+    "url": "https://genius.com/Nina-caroline-outsider-lyrics"
+  },
+  {
+    "artist": "Nora Fatehi, Vegedream & Sanjoy",
+    "title": "Siir Siir",
+    "url": "https://genius.com/Nora-fatehi-vegedream-and-sanjoy-siir-siir-lyrics"
+  },
+  {
+    "artist": "OKAY FINE",
+    "title": "LET ME COOK",
+    "url": "https://genius.com/Okay-fine-let-me-cook-lyrics"
+  },
+  {
+    "artist": "Olamide, Larry Gaaga, Mavo & Kidd Carder",
+    "title": "Come on",
+    "url": "https://genius.com/Olamide-larry-gaaga-mavo-and-kidd-carder-come-on-lyrics"
+  },
+  {
+    "artist": "Outside Edge",
+    "title": "Not Guilty",
+    "url": "https://genius.com/Outside-edge-not-guilty-lyrics"
+  },
+  {
+    "artist": "Outside Edge",
+    "title": "Cherie",
+    "url": "https://genius.com/Outside-edge-cherie-lyrics"
+  },
+  {
+    "artist": "Outside Edge",
+    "title": "Avenue Of The Americas",
+    "url": "https://genius.com/Outside-edge-avenue-of-the-americas-lyrics"
+  },
+  {
+    "artist": "Outside Edge",
+    "title": "Change",
+    "url": "https://genius.com/Outside-edge-change-lyrics"
+  },
+  {
+    "artist": "Outside Edge",
+    "title": "Edge Of Madness",
+    "url": "https://genius.com/Outside-edge-edge-of-madness-lyrics"
+  },
+  {
+    "artist": "PRA (Nigeria)",
+    "title": "Juju Pro",
+    "url": "https://genius.com/Pra-nigeria-juju-pro-lyrics"
+  },
+  {
+    "artist": "Partners-N-Crime",
+    "title": "Thank You Miss Lilly",
+    "url": "https://genius.com/Partners-n-crime-thank-you-miss-lilly-lyrics"
+  },
+  {
+    "artist": "Patsy & Dave & James Blundell",
+    "title": "After The Storm",
+    "url": "https://genius.com/Patsy-and-dave-and-james-blundell-after-the-storm-lyrics"
+  },
+  {
+    "artist": "Paul Anka",
+    "title": "Dannon",
+    "url": "https://genius.com/Paul-anka-dannon-lyrics"
+  },
+  {
+    "artist": "Paul Anka",
+    "title": "A Mexican Night",
+    "url": "https://genius.com/Paul-anka-a-mexican-night-lyrics"
+  },
+  {
+    "artist": "Paul Anka",
+    "title": "If I Had My Life to Live Over",
+    "url": "https://genius.com/Paul-anka-if-i-had-my-life-to-live-over-lyrics"
+  },
+  {
+    "artist": "Paul Anka",
+    "title": "Tonight",
+    "url": "https://genius.com/Paul-anka-tonight-lyrics"
+  },
+  {
+    "artist": "Peacestar",
+    "title": "To the Light",
+    "url": "https://genius.com/Peacestar-to-the-light-lyrics"
+  },
+  {
+    "artist": "Peacestar & Meeky James",
+    "title": "Groovy Love II",
+    "url": "https://genius.com/Peacestar-and-meeky-james-groovy-love-ii-lyrics"
+  },
+  {
+    "artist": "Peacestar, Logik Tha Pro & Diyo Matalo",
+    "title": "Groovy Love",
+    "url": "https://genius.com/Peacestar-logik-tha-pro-and-diyo-matalo-groovy-love-lyrics"
+  },
+  {
+    "artist": "Rachel Harlow",
+    "title": "Avalon",
+    "url": "https://genius.com/Rachel-harlow-avalon-lyrics"
+  },
+  {
+    "artist": "Ray Conniff Orchestra and Chorus",
+    "title": "Medley: The First Noel/ Hark! The Herald Angels Sing/ O Come All Ye Faithful/ We Wish You A Merry Christmas",
+    "url": "https://genius.com/Ray-conniff-orchestra-and-chorus-medley-the-first-noel-hark-the-herald-angels-sing-o-come-all-ye-faithful-we-wish-you-a-merry-christmas-lyrics"
+  },
+  {
+    "artist": "Reflexsoundz",
+    "title": "PDAPC",
+    "url": "https://genius.com/Reflexsoundz-pdapc-lyrics"
+  },
+  {
+    "artist": "Reflexsoundz",
+    "title": "Obi (Romanized)",
+    "url": "https://genius.com/Reflexsoundz-obi-romanized-lyrics"
+  },
+  {
+    "artist": "Relic Rhymes & Lola Brooke",
+    "title": "My Lord (Hair Done) 2",
+    "url": "https://genius.com/Relic-rhymes-and-lola-brooke-my-lord-hair-done-2-lyrics"
+  },
+  {
+    "artist": "Rord Kelly",
+    "title": "Mebelum Ife",
+    "url": "https://genius.com/Rord-kelly-mebelum-ife-lyrics"
+  },
+  {
+    "artist": "Rord Kelly & Chella",
+    "title": "Okwu (Remix)",
+    "url": "https://genius.com/Rord-kelly-and-chella-okwu-remix-lyrics"
+  },
+  {
+    "artist": "SSSoundGawd, Mavo & Joshua Baraka",
+    "title": "Hey Mama",
+    "url": "https://genius.com/Sssoundgawd-mavo-and-joshua-baraka-hey-mama-lyrics"
+  },
+  {
+    "artist": "Saint Jude",
+    "title": "Does",
+    "url": "https://genius.com/Saint-jude-does-lyrics"
+  },
+  {
+    "artist": "Saint Jude",
+    "title": "Halfway",
+    "url": "https://genius.com/Saint-jude-halfway-lyrics"
+  },
+  {
+    "artist": "Saint Jude",
+    "title": "Last Summer",
+    "url": "https://genius.com/Saint-jude-last-summer-lyrics"
+  },
+  {
+    "artist": "Sarz & WurlD",
+    "title": "Nice n Slow",
+    "url": "https://genius.com/Sarz-and-wurld-nice-n-slow-lyrics"
+  },
+  {
+    "artist": "Shallipopi",
+    "title": "Backup*",
+    "url": "https://genius.com/Shallipopi-backup-lyrics"
+  },
+  {
+    "artist": "Shoday, Billionboi & Olamide",
+    "title": "Come Kulosa",
+    "url": "https://genius.com/Shoday-billionboi-and-olamide-come-kulosa-lyrics"
+  },
+  {
+    "artist": "Smur Lee, DJ Maphorisa, Focalistic, Ch'cco, Mluusician & BigBaller_CEO",
+    "title": "Deliver",
+    "url": "https://genius.com/Smur-lee-dj-maphorisa-focalistic-chcco-mluusician-and-bigballer-ceo-deliver-lyrics"
+  },
+  {
+    "artist": "Smur Lee, Treepz & Stuph Chain",
+    "title": "Hate On Me",
+    "url": "https://genius.com/Smur-lee-treepz-and-stuph-chain-hate-on-me-lyrics"
+  },
+  {
+    "artist": "So Plush",
+    "title": "Phone Messages (Part 2)",
+    "url": "https://genius.com/So-plush-phone-messages-part-2-lyrics"
+  },
+  {
+    "artist": "So Plush",
+    "title": "L.A. L.A.",
+    "url": "https://genius.com/So-plush-la-la-lyrics"
+  },
+  {
+    "artist": "Sodikken (AI)",
+    "title": "Counting Hours",
+    "url": "https://genius.com/Sodikken-ai-counting-hours-lyrics"
+  },
+  {
+    "artist": "Steevi Jaimz",
+    "title": "Kick That Habit",
+    "url": "https://genius.com/Steevi-jaimz-kick-that-habit-lyrics"
+  },
+  {
+    "artist": "Stepz (UK)",
+    "title": "Book Bag",
+    "url": "https://genius.com/Stepz-uk-book-bag-lyrics"
+  },
+  {
+    "artist": "Stepz (UK)",
+    "title": "Superhero",
+    "url": "https://genius.com/Stepz-uk-superhero-lyrics"
+  },
+  {
+    "artist": "Studiowyzz",
+    "title": "Boy Gotta Do",
+    "url": "https://genius.com/Studiowyzz-boy-gotta-do-lyrics"
+  },
+  {
+    "artist": "Studiowyzz",
+    "title": "Bro",
+    "url": "https://genius.com/Studiowyzz-bro-lyrics"
+  },
+  {
+    "artist": "Studiowyzz & Jada O\u2019Neill",
+    "title": "High Some Days",
+    "url": "https://genius.com/Studiowyzz-and-jada-oneill-high-some-days-lyrics"
+  },
+  {
+    "artist": "TKandz & CXSPER",
+    "title": "PHOTOGENIC",
+    "url": "https://genius.com/Tkandz-and-cxsper-photogenic-lyrics"
+  },
+  {
+    "artist": "Terry Apala & Mavo",
+    "title": "Apaladisskizzy",
+    "url": "https://genius.com/Terry-apala-and-mavo-apaladisskizzy-lyrics"
+  },
+  {
+    "artist": "The 5th Dimension",
+    "title": "A Good Love",
+    "url": "https://genius.com/The-5th-dimension-a-good-love-lyrics"
+  },
+  {
+    "artist": "The Black Crowes",
+    "title": "Girl From The Panwshop",
+    "url": "https://genius.com/The-black-crowes-girl-from-the-panwshop-lyrics"
+  },
+  {
+    "artist": "The Black Crowes",
+    "title": "Nonfiction (Acoustic)",
+    "url": "https://genius.com/The-black-crowes-nonfiction-acoustic-lyrics"
+  },
+  {
+    "artist": "The Black Crowes",
+    "title": "P.25 London (Live At AIR Studios, October 25, 1994)",
+    "url": "https://genius.com/The-black-crowes-p25-london-live-at-air-studios-october-25-1994-lyrics"
+  },
+  {
+    "artist": "The Black Crowes",
+    "title": "Wiser Time (Live At AIR Studios, October 25, 1994)",
+    "url": "https://genius.com/The-black-crowes-wiser-time-live-at-air-studios-october-25-1994-lyrics"
+  },
+  {
+    "artist": "The Black Crowes",
+    "title": "High Head Times (Live At AIR Studios, October 25, 1994)",
+    "url": "https://genius.com/The-black-crowes-high-head-times-live-at-air-studios-october-25-1994-lyrics"
+  },
+  {
+    "artist": "The Cool Kids",
+    "title": "Taking a Break (Interlude)",
+    "url": "https://genius.com/The-cool-kids-taking-a-break-interlude-lyrics"
+  },
+  {
+    "artist": "The Cool Kids",
+    "title": "Weekend Girls",
+    "url": "https://genius.com/The-cool-kids-weekend-girls-lyrics"
+  },
+  {
+    "artist": "Thibault Cauvin & -M- (FRA)",
+    "title": "\u00a1 Pura Vida Fenomenal ! (Live Le Nouveau Si\u00e8cle 2024)",
+    "url": "https://genius.com/Thibault-cauvin-and-m-fra-pura-vida-fenomenal-live-le-nouveau-siecle-2024-lyrics"
+  },
+  {
+    "artist": "Tomi Lumiere",
+    "title": "Feeling Good",
+    "url": "https://genius.com/Tomi-lumiere-feeling-good-lyrics"
+  },
+  {
+    "artist": "Trent Willmon",
+    "title": "There Is God",
+    "url": "https://genius.com/Trent-willmon-there-is-god-lyrics"
+  },
+  {
+    "artist": "Troy Venus & Monochrome",
+    "title": "Pop Something",
+    "url": "https://genius.com/Troy-venus-and-monochrome-pop-something-lyrics"
+  },
+  {
+    "artist": "Victony",
+    "title": "Like it*",
+    "url": "https://genius.com/Victony-like-it-lyrics"
+  },
+  {
+    "artist": "Victony",
+    "title": "Orijo*",
+    "url": "https://genius.com/Victony-orijo-lyrics"
+  },
+  {
+    "artist": "Villager",
+    "title": "IN LOVE WITH YOU FOR THE LAST TIME",
+    "url": "https://genius.com/Villager-in-love-with-you-for-the-last-time-lyrics"
+  },
+  {
+    "artist": "Villager",
+    "title": "OXYGEN",
+    "url": "https://genius.com/Villager-oxygen-lyrics"
+  },
+  {
+    "artist": "Villager",
+    "title": "LORETTA, I TRIED!",
+    "url": "https://genius.com/Villager-loretta-i-tried-lyrics"
+  },
+  {
+    "artist": "Villager",
+    "title": "SIX SHOTS",
+    "url": "https://genius.com/Villager-six-shots-lyrics"
+  },
+  {
+    "artist": "Villager",
+    "title": "HOLD OF ME",
+    "url": "https://genius.com/Villager-hold-of-me-lyrics"
+  },
+  {
+    "artist": "Villager",
+    "title": "NEEDLE IN THE SKIN",
+    "url": "https://genius.com/Villager-needle-in-the-skin-lyrics"
+  },
+  {
+    "artist": "Villager",
+    "title": "INERTIA",
+    "url": "https://genius.com/Villager-inertia-lyrics"
+  },
+  {
+    "artist": "WAVE$TAR",
+    "title": "Government Money/My5*",
+    "url": "https://genius.com/Wave-tar-government-money-my5-lyrics"
+  },
+  {
+    "artist": "WYSHLESS",
+    "title": "ALL U KNOW",
+    "url": "https://genius.com/Wyshless-all-u-know-lyrics"
+  },
+  {
+    "artist": "Waysted",
+    "title": "Hurts So Bad",
+    "url": "https://genius.com/Waysted-hurts-so-bad-lyrics"
+  },
+  {
+    "artist": "Wealthy Micky & NO11",
+    "title": "HOW FAR - COVER",
+    "url": "https://genius.com/Wealthy-micky-and-no11-how-far-cover-lyrics"
+  },
+  {
+    "artist": "XVGRAM",
+    "title": "MY SOUL",
+    "url": "https://genius.com/Xvgram-my-soul-lyrics"
+  },
+  {
+    "artist": "Yo Gabba Gabba & James Husband",
+    "title": "To Give A Present",
+    "url": "https://genius.com/Yo-gabba-gabba-and-james-husband-to-give-a-present-lyrics"
+  },
+  {
+    "artist": "Yo Gabba Gabba & Mark Mothersbaugh",
+    "title": "Make It Yourself",
+    "url": "https://genius.com/Yo-gabba-gabba-and-mark-mothersbaugh-make-it-yourself-lyrics"
+  },
+  {
+    "artist": "Yungeen Ace",
+    "title": "Answer Da Phone",
+    "url": "https://genius.com/Yungeen-ace-answer-da-phone-lyrics"
+  },
+  {
+    "artist": "Yungeen Ace",
+    "title": "Ain\u2019t Good Enough",
+    "url": "https://genius.com/Yungeen-ace-aint-good-enough-lyrics"
+  },
+  {
+    "artist": "Yungeen Ace",
+    "title": "Waste My Time",
+    "url": "https://genius.com/Yungeen-ace-waste-my-time-lyrics"
+  },
+  {
+    "artist": "Yungeen Ace",
+    "title": "In the Shadow",
+    "url": "https://genius.com/Yungeen-ace-in-the-shadow-lyrics"
+  },
+  {
+    "artist": "Zach Diamond",
+    "title": "Angels And Demons",
+    "url": "https://genius.com/Zach-diamond-angels-and-demons-lyrics"
+  },
+  {
+    "artist": "Zach Diamond",
+    "title": "Around Me",
+    "url": "https://genius.com/Zach-diamond-around-me-lyrics"
+  },
+  {
+    "artist": "Zerrydl",
+    "title": "Bounce It",
+    "url": "https://genius.com/Zerrydl-bounce-it-lyrics"
+  },
+  {
+    "artist": "Zerrydl",
+    "title": "My Amigo",
+    "url": "https://genius.com/Zerrydl-my-amigo-lyrics"
+  },
+  {
+    "artist": "Zerrydl, Jenerall & Tega boi dc",
+    "title": "Stack",
+    "url": "https://genius.com/Zerrydl-jenerall-and-tega-boi-dc-stack-lyrics"
+  },
+  {
+    "artist": "Zerrydl, Jenerall & Tega boi dc",
+    "title": "Igho",
+    "url": "https://genius.com/Zerrydl-jenerall-and-tega-boi-dc-igho-lyrics"
+  },
+  {
+    "artist": "Zlatan",
+    "title": "Jeserawa",
+    "url": "https://genius.com/Zlatan-jeserawa-lyrics"
+  },
+  {
+    "artist": "darken (ESP)",
+    "title": "MrBeast Give Me Some Money",
+    "url": "https://genius.com/Darken-esp-mrbeast-give-me-some-money-lyrics"
+  },
+  {
+    "artist": "ePianoh",
+    "title": "Tinubu",
+    "url": "https://genius.com/Epianoh-tinubu-lyrics"
+  },
+  {
+    "artist": "ePianoh",
+    "title": "Send 2k",
+    "url": "https://genius.com/Epianoh-send-2k-lyrics"
+  },
+  {
+    "artist": "homepage",
+    "title": "brand new me!",
+    "url": "https://genius.com/Homepage-brand-new-me-lyrics"
+  },
+  {
+    "artist": "sabrina (CMR)",
+    "title": "Alone",
+    "url": "https://genius.com/Sabrina-cmr-alone-lyrics"
+  },
+  {
+    "artist": "zekke",
+    "title": "AFK",
+    "url": "https://genius.com/Zekke-afk-lyrics"
+  }
+];
+
+let isBulkRunning = false;
+let isBulkPaused = false;
+
+document.addEventListener('DOMContentLoaded', function () {
+    const loadDefaultListBtn = document.getElementById('loadDefaultListBtn');
+    const clearBulkIqBtn = document.getElementById('clearBulkIqBtn');
+    const bulkIqUrlsInput = document.getElementById('bulkIqUrlsInput');
+    const startBulkIqBtn = document.getElementById('startBulkIqBtn');
+    const pauseBulkIqBtn = document.getElementById('pauseBulkIqBtn');
+
+    const bulkStatTotal = document.getElementById('bulkStatTotal');
+    const bulkStatAwarded = document.getElementById('bulkStatAwarded');
+    const bulkStatSkipped = document.getElementById('bulkStatSkipped');
+    const bulkStatFailed = document.getElementById('bulkStatFailed');
+    const bulkIqLog = document.getElementById('bulkIqLog');
+
+    if (!startBulkIqBtn) return;
+
+    function logBulk(msg, color = '#eee') {
+        const time = new Date().toLocaleTimeString();
+        const div = document.createElement('div');
+        div.style.color = color;
+        div.style.marginBottom = '2px';
+        div.textContent = `[${time}] ${msg}`;
+        bulkIqLog.appendChild(div);
+        bulkIqLog.scrollTop = bulkIqLog.scrollHeight;
+    }
+
+    loadDefaultListBtn.addEventListener('click', () => {
+        bulkIqUrlsInput.value = JSON.stringify(PROVIDED_SONGS_LIST, null, 2);
+        logBulk(`Loaded provided list of ${PROVIDED_SONGS_LIST.length} songs into textarea.`, '#ffff64');
+    });
+
+    clearBulkIqBtn.addEventListener('click', () => {
+        bulkIqUrlsInput.value = '';
+        bulkIqLog.innerHTML = '<div>[Ready] Awaiting song list...</div>';
+        bulkStatTotal.textContent = '0';
+        bulkStatAwarded.textContent = '0';
+        bulkStatSkipped.textContent = '0';
+        bulkStatFailed.textContent = '0';
+    });
+
+    pauseBulkIqBtn.addEventListener('click', () => {
+        isBulkPaused = !isBulkPaused;
+        pauseBulkIqBtn.textContent = isBulkPaused ? 'Resume' : 'Pause';
+        logBulk(isBulkPaused ? 'Processing paused.' : 'Resuming processing...', '#ffff64');
+    });
+
+    startBulkIqBtn.addEventListener('click', async () => {
+        if (isBulkRunning) return;
+
+        const rawText = bulkIqUrlsInput.value.trim();
+        if (!rawText) {
+            logBulk('Error: No Genius song URLs or JSON provided.', '#fa7878');
+            return;
+        }
+
+        let items = [];
+        try {
+            if (rawText.startsWith('[') || rawText.startsWith('{')) {
+                const parsed = JSON.parse(rawText);
+                items = Array.isArray(parsed) ? parsed : [parsed];
+            } else {
+                items = rawText.split('\n').map(l => ({ url: l.trim() })).filter(o => o.url.length > 0);
+            }
+        } catch (e) {
+            items = rawText.split('\n').map(l => ({ url: l.trim() })).filter(o => o.url.length > 0);
+        }
+
+        items = items.filter(item => item && (item.url || item.id || item.song_id));
+
+        if (items.length === 0) {
+            logBulk('Error: Could not parse any valid Genius song entries.', '#fa7878');
+            return;
+        }
+
+        isBulkRunning = true;
+        isBulkPaused = false;
+        startBulkIqBtn.disabled = true;
+        pauseBulkIqBtn.disabled = false;
+        pauseBulkIqBtn.textContent = 'Pause';
+
+        let total = items.length;
+        let awarded = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        bulkStatTotal.textContent = total;
+        bulkStatAwarded.textContent = awarded;
+        bulkStatSkipped.textContent = skipped;
+        bulkStatFailed.textContent = failed;
+
+        logBulk(`Starting batch execution for ${total} songs...`, '#99f2a5');
+
+        for (let i = 0; i < items.length; i++) {
+            if (!isBulkRunning) break;
+
+            while (isBulkPaused) {
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            const entry = items[i];
+            const url = entry.url || '';
+            const artist = entry.artist || '';
+            const title = entry.title || '';
+            const label = (artist && title) ? `${artist} - "${title}"` : (url || `Song #${entry.id || entry.song_id}`);
+
+            logBulk(`[${i + 1}/${total}] Checking: ${label}...`, '#aaa');
+
+            try {
+                let songId = entry.id || entry.song_id || null;
+
+                if (!songId && url) {
+                    const pageRes = await fetch(url, { credentials: 'include' });
+                    if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status} fetching song page`);
+                    const html = await pageRes.text();
+
+                    const match = html.match(/genius:\/\/songs\/(\d+)/) ||
+                                  html.match(/"song":\s*\{\s*"id":\s*(\d+)/) ||
+                                  html.match(/"Song ID",\s*"value":\s*(\d+)/) ||
+                                  html.match(/songs\/(\d+)\/embed/);
+                    if (match) songId = match[1];
+                }
+
+                if (!songId) {
+                    throw new Error('Could not resolve Song ID');
+                }
+
+                const songData = await getApiData(songId, 'songs');
+                const song = songData.song || songData;
+
+                const isAlreadyComplete = song.lyrics_state === 'complete' ||
+                                          song.transcription_iq_awarded === true ||
+                                          song.lyrics_marked_complete_by != null;
+
+                if (isAlreadyComplete) {
+                    skipped++;
+                    bulkStatSkipped.textContent = skipped;
+                    logBulk(`[SKIPPED] ${label} (Song #${songId}): Already marked complete / IQ awarded.`, '#ffff64');
+                } else {
+                    const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq') ?? true;
+                    if (!canAward) {
+                        failed++;
+                        bulkStatFailed.textContent = failed;
+                        logBulk(`[INELIGIBLE] ${label} (Song #${songId}): Option not available or missing permission.`, '#fa7878');
+                    } else {
+                        const awardRes = await awardTranscriptionIq(songId);
+                        if (awardRes && awardRes.ok) {
+                            awarded++;
+                            bulkStatAwarded.textContent = awarded;
+                            logBulk(`[AWARDED] ${label} (Song #${songId}): Successfully awarded transcription IQ!`, '#99f2a5');
+                        } else {
+                            failed++;
+                            bulkStatFailed.textContent = failed;
+                            logBulk(`[FAILED] ${label} (Song #${songId}): ${awardRes?.statusText || awardRes?.error || 'Request failed'}`, '#fa7878');
+                        }
+                    }
+                }
+            } catch (err) {
+                failed++;
+                bulkStatFailed.textContent = failed;
+                logBulk(`[ERROR] ${label}: ${err.message}`, '#fa7878');
+            }
+
+            await new Promise(r => setTimeout(r, 600));
+        }
+
+        logBulk(`Batch execution completed! Total: ${total}, Awarded: ${awarded}, Skipped: ${skipped}, Failed: ${failed}`, '#ffff64');
+        isBulkRunning = false;
+        startBulkIqBtn.disabled = false;
+        pauseBulkIqBtn.disabled = true;
+    });
 });

@@ -275,6 +275,38 @@ async function updateAlbumMetadata(album, payload) {
 
 
 
+async function awardTranscriptionIq(songId) {
+    if (!songId) return null;
+    try {
+        const response = await geniusFetch(`https://genius.com/api/songs/${songId}/award_transcription_iq`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cookie': document.cookie,
+                'X-CSRF-Token': getCsrfToken(),
+                'User-Agent': 'ArtworkExtractorForGenius/0.7.9 (Artwork Extractor for Genius)'
+            },
+            body: JSON.stringify({ text_format: 'html,markdown,preview' })
+        });
+
+        if (!response.ok) {
+            let errText = response.statusText;
+            try {
+                const errJson = await response.json();
+                if (errJson?.meta?.message) errText = `${response.status} ${errJson.meta.message}`;
+                else if (errJson?.error) errText = `${response.status} ${errJson.error}`;
+            } catch (e) {}
+            console.error(`Error awarding transcription IQ for song ${songId}: ${errText}`);
+            return { ok: false, status: response.status, statusText: errText };
+        }
+        const json = await response.json();
+        return { ok: true, data: json };
+    } catch (error) {
+        console.error(`Error awarding transcription IQ for song ${songId}:`, error);
+        return { ok: false, error: error.message };
+    }
+}
+
 async function updateSongLyrics(song, payload) {
     if (Object.keys(payload).length === 0) return;
     try {
