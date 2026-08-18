@@ -10,6 +10,7 @@ chrome.storage.local.get([
     'isGeniusArtistFollowButton',
     'isGeniusArtistSpreadsheetButton',
     'isGeniusArtistSearchArtistMetadata',
+    'isGeniusArtistBulkAwardIq',
     'isGeniusArtistRecords',
     'isGeniusArtistNewPage'
 ], async function (result) {
@@ -23,6 +24,7 @@ chrome.storage.local.get([
     const isGeniusArtistFollowButton = result.isGeniusArtistFollowButton ?? false;
     const isGeniusArtistSpreadsheetButton = result.isGeniusArtistSpreadsheetButton ?? false;
     const isGeniusArtistSearchArtistMetadata = result.isGeniusArtistSearchArtistMetadata ?? true;
+    const isGeniusArtistBulkAwardIq = result.isGeniusArtistBulkAwardIq ?? true;
     const isGeniusArtistRecords = result.isGeniusArtistRecords ?? true;
     const isGeniusArtistNewPage = result.isGeniusArtistNewPage ?? true;
 
@@ -69,6 +71,7 @@ chrome.storage.local.get([
             if (isGeniusArtistArtistPageInfo) showCoverInfoNew(artistData);
 
             if (isGeniusArtistFollowButton) FollowButtonArtistPageNew(artistId);
+            if (isGeniusArtistBulkAwardIq) BulkAwardIqArtistPageNew(artistId);
             if (isGeniusArtistSpreadsheetButton) getSpreadsheetNew(artistId, "artist");
 
             if (isGeniusArtistSearchArtistMetadata) searchArtistMetadata(artistData);
@@ -82,6 +85,7 @@ chrome.storage.local.get([
 
             if (isGeniusArtistArtistPage) checkArtistCover(artistData);
             if (isGeniusArtistFollowButton) FollowButtonArtistPage(artistId);
+            if (isGeniusArtistBulkAwardIq) BulkAwardIqArtistPage(artistId);
 
             if (isGeniusArtistSpreadsheetButton) getSpreadsheet(artistId, "artist");
         } else if (isUser) {
@@ -558,6 +562,104 @@ chrome.storage.local.get([
 
             wrapper.appendChild(btn);
         });
+    }
+
+    function BulkAwardIqArtistPage(artistId) {
+        injectButtons([
+            {
+                text: 'Bulk Award IQ',
+                width: "9.5rem",
+                onClick: async (button) => {
+                    await processArtistBulkAwardIq(artistId, button);
+                }
+            }
+        ]);
+    }
+
+    function BulkAwardIqArtistPageNew(artistId) {
+        const profileContainer = document.querySelector('h2[class^="ProfileContent-desktop__Heading-"]');
+        if (!profileContainer) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.style.display = "flex";
+        wrapper.style.flexDirection = "row";
+        wrapper.style.width = "100%";
+        wrapper.style.gap = "0.5rem";
+
+        insertButtons(wrapper, [
+            {
+                text: 'Bulk Award IQ',
+                width: "9.5rem",
+                onClick: async (button) => {
+                    await processArtistBulkAwardIq(artistId, button);
+                }
+            }
+        ]);
+        profileContainer.parentNode.insertBefore(wrapper, profileContainer);
+    }
+
+    async function processArtistBulkAwardIq(artistId, button) {
+        button.disabled = true;
+        button.textContent = 'Fetching songs...';
+
+        try {
+            const songIds = await fetchAllSongIds(artistId);
+            const total = songIds.length;
+            if (total === 0) {
+                button.textContent = 'No songs found';
+                setTimeout(() => {
+                    button.textContent = 'Bulk Award IQ';
+                    button.disabled = false;
+                }, 3000);
+                return;
+            }
+
+            let awarded = 0, skipped = 0, failed = 0;
+
+            for (let i = 0; i < total; i++) {
+                const songId = songIds[i];
+                button.textContent = `Awarding (${i + 1}/${total})...`;
+
+                try {
+                    const songData = await getApiData(songId, 'songs');
+                    const song = songData.song || songData;
+
+                    const isAlreadyComplete = song.lyrics_state === 'complete' ||
+                                              song.transcription_iq_awarded === true ||
+                                              song.lyrics_marked_complete_by != null;
+
+                    if (isAlreadyComplete) {
+                        skipped++;
+                    } else {
+                        const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq') ?? true;
+                        if (!canAward) {
+                            failed++;
+                        } else {
+                            const awardRes = await awardTranscriptionIq(songId);
+                            if (awardRes && awardRes.ok) {
+                                awarded++;
+                            } else {
+                                failed++;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    failed++;
+                }
+
+                await new Promise(r => setTimeout(r, 600));
+            }
+
+            button.textContent = `Done! +${awarded} IQ (${skipped} skip)`;
+        } catch (err) {
+            button.textContent = 'Awarding failed';
+            console.error("Error in processArtistBulkAwardIq:", err);
+        } finally {
+            setTimeout(() => {
+                button.textContent = 'Bulk Award IQ';
+                button.disabled = false;
+            }, 5000);
+        }
     }
 
     function FollowButtonArtistPage(artistId) {
