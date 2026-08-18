@@ -759,6 +759,12 @@
                         </label>
                         <span class="settings-span">Search Artist Metadata</span>
                         <br />
+                        <label class="switch settings-label">
+                            <input type="checkbox" id="isGeniusArtistBulkAwardIq" />
+                            <span class="slider"></span>
+                        </label>
+                        <span class="settings-span">Bulk Award IQ Button</span>
+                        <br />
                     </div>
                     <h2>User Page</h2>
                     <div class="frame">
@@ -784,6 +790,38 @@
                 <div class="divider"></div>
                 <div class="right-column">
                     <h2>Work in progress</h1>
+                </div>
+            </div>
+        </div>
+        <div id="genius-bulk-iq">
+            <h1>Genius Bulk Award Transcription IQ</h1>
+            <p style="font-size: 13px; color: #888; margin-bottom: 15px;">
+                Paste Genius song URLs (one per line or JSON array) to bulk award transcription IQ points.
+            </p>
+            <div class="columns-container">
+                <div class="left-column" style="width: 100%;">
+                    <div style="margin-bottom: 10px; display: flex; gap: 8px;">
+                        <button id="loadDefaultListBtn" style="padding: 8px 16px; min-width: 220px; font-weight: 600; cursor: pointer;">Load Provided Songs (225 Songs)</button>
+                        <button id="clearBulkIqBtn" style="padding: 8px 16px; min-width: 80px; font-weight: 600; cursor: pointer;">Clear</button>
+                    </div>
+                    <textarea id="bulkIqUrlsInput" rows="8" style="width: 98%; padding: 8px; font-family: monospace; font-size: 12px;" placeholder='Paste URLs or JSON list, e.g.:&#10;https://genius.com/Song-lyrics&#10;or&#10;[{"url": "https://genius.com/Song-lyrics"}]'></textarea>
+
+                    <div class="bulk-stats-bar" style="display: flex; gap: 15px; margin: 12px 0; background: #eee; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 13px;">
+                        <span>Total: <span id="bulkStatTotal">0</span></span>
+                        <span style="color: #4caf50;">Awarded: <span id="bulkStatAwarded">0</span></span>
+                        <span style="color: #ff9800;">Skipped: <span id="bulkStatSkipped">0</span></span>
+                        <span style="color: #f44336;">Failed: <span id="bulkStatFailed">0</span></span>
+                    </div>
+
+                    <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+                        <button id="startBulkIqBtn" style="padding: 8px 16px; font-weight: bold; cursor: pointer; background: #ffff64; color: #000; border: none; border-radius: 4px;">Start Processing</button>
+                        <button id="pauseBulkIqBtn" disabled style="padding: 8px 16px; cursor: pointer;">Pause</button>
+                    </div>
+
+                    <h3>Execution Log</h3>
+                    <div id="bulkIqLog" style="height: 180px; overflow-y: auto; background: #111; color: #eee; padding: 10px; font-family: monospace; font-size: 12px; border-radius: 4px; margin-top: 5px;">
+                        <div>[Ready] Awaiting song list...</div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -256,6 +256,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const isGeniusArtistFollowButton = document.getElementById('isGeniusArtistFollowButton').checked;
         const isGeniusArtistSpreadsheetButton = document.getElementById('isGeniusArtistSpreadsheetButton').checked;
         const isGeniusArtistSearchArtistMetadata = document.getElementById('isGeniusArtistSearchArtistMetadata').checked;
+        const isGeniusArtistBulkAwardIq = document.getElementById('isGeniusArtistBulkAwardIq').checked;
         const isGeniusArtistRecords = document.getElementById('isGeniusArtistRecords').checked;
         const isGeniusArtistNewPage = document.getElementById('isGeniusArtistNewPage').checked;
         const is45CopyCover = document.getElementById('is45CopyCover').checked;
@@ -381,6 +382,7 @@ document.addEventListener('DOMContentLoaded', function () {
             isGeniusArtistFollowButton: isGeniusArtistFollowButton,
             isGeniusArtistSpreadsheetButton: isGeniusArtistSpreadsheetButton,
             isGeniusArtistSearchArtistMetadata: isGeniusArtistSearchArtistMetadata,
+            isGeniusArtistBulkAwardIq: isGeniusArtistBulkAwardIq,
             isGeniusArtistRecords: isGeniusArtistRecords,
             isGeniusArtistNewPage: isGeniusArtistNewPage,
             is45CopyCover: is45CopyCover,
@@ -461,7 +463,7 @@ document.addEventListener('DOMContentLoaded', function () {
     chrome.storage.local.get([
         'isGeniusSongSongPage', 'isGeniusSongSongPageZwsp', 'isGeniusSongSongPageInfo', 'isGeniusSongSongId', 'isGeniusSongCheckIndex', 'isGeniusSongFollowButton', 'isGeniusSongTranslationButton','isGeniusSongShellyButton', 'isGeniusSongCleanupMetadataButton', 'isGeniusSongLanguageButton', 'isGeniusSongCleanupButton', 'isGeniusSongSectionsButtons', 'isGeniusSongExpandSectionsButtons', 'isGeniusSongAnnotationsButtons', 'isGeniusSongFilterActivity', 'isGeniusSongFilterNotifications', 'isGeniusSongSaveFilters', 'isGeniusSongFilterFirehose','isGeniusSongCopyCover', 'isGeniusSongAppleMusicPlayer', 'isGeniusSongYouTubePlayer', 'isGeniusSongSoundCloudPlayer', 'isGeniusSongSpotifyPlayer', 'isGeniusSongLyricEditor', 'isGeniusSongRenameButtons',
         'isGeniusAlbumAlbumPage', 'isGeniusAlbumAlbumPageZwsp', 'isGeniusAlbumAlbumPageInfo', 'isGeniusAlbumAlbumId', 'isGeniusAlbumAlbumPageLyrics', 'isGeniusAlbumExpandTracklist', 'isGeniusAlbumEditTracklist', 'isGeniusAlbumUploadCover', 'isGeniusAlbumRenameButtons', 'isGeniusAlbumSongCreditsButton', 'isGeniusAlbumSongCreditsAutoReopen', 'isGeniusAlbumFollowButton', 'isGeniusAlbumCleanupButton',
-        'isGeniusArtistArtistPage', 'isGeniusArtistArtistPageZwsp', 'isGeniusArtistArtistPageInfo', 'isGeniusArtistArtistId', 'isGeniusArtistAllSongsAlbumsPage', 'isGeniusArtistAllSongsAlbumsPageMetadata', 'isGeniusArtistAllSongsAlbumsPageZwsp', 'isGeniusArtistFollowButton', 'isGeniusArtistSpreadsheetButton', 'isGeniusArtistSearchArtistMetadata','isGeniusArtistRecords', 'isGeniusArtistNewPage',
+        'isGeniusArtistArtistPage', 'isGeniusArtistArtistPageZwsp', 'isGeniusArtistArtistPageInfo', 'isGeniusArtistArtistId', 'isGeniusArtistAllSongsAlbumsPage', 'isGeniusArtistAllSongsAlbumsPageMetadata', 'isGeniusArtistAllSongsAlbumsPageZwsp', 'isGeniusArtistFollowButton', 'isGeniusArtistSpreadsheetButton', 'isGeniusArtistSearchArtistMetadata', 'isGeniusArtistBulkAwardIq', 'isGeniusArtistRecords', 'isGeniusArtistNewPage',
         'is45CopyCover', 'is45Popup', 'is45ConvertPNG', 'is45SaveImage', 'is45HostImgBB', 'is45HostFilestack', 'is45RightClick',
         'isAppleMusicCopyTracklist', 'isAppleMusicCopyCover', 'isAppleMusicCopyAnimatedCover', 'isAppleMusicCopyLyrics', 'isAppleMusicCopyArtist', 'isAppleMusicCopyCredits', 'isAppleMusicPopup', 'isAppleMusicHighlighting', 'isAppleMusicSaveImage',
         'isBandcampCopyTracklist', 'isBandcampCopyCover', 'isBandcampPopup', 'isBandcampSaveImage',
@@ -522,6 +524,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('isGeniusArtistFollowButton').checked = result.isGeniusArtistFollowButton !== undefined ? result.isGeniusArtistFollowButton : false;
         document.getElementById('isGeniusArtistSpreadsheetButton').checked = result.isGeniusArtistSpreadsheetButton !== undefined ? result.isGeniusArtistSpreadsheetButton : false;
         document.getElementById('isGeniusArtistSearchArtistMetadata').checked = result.isGeniusArtistSearchArtistMetadata !== undefined ? result.isGeniusArtistSearchArtistMetadata : true;
+        document.getElementById('isGeniusArtistBulkAwardIq').checked = result.isGeniusArtistBulkAwardIq !== undefined ? result.isGeniusArtistBulkAwardIq : true;
         document.getElementById('isGeniusArtistRecords').checked = result.isGeniusArtistRecords !== undefined ? result.isGeniusArtistRecords : true;
         document.getElementById('isGeniusArtistNewPage').checked = result.isGeniusArtistNewPage !== undefined ? result.isGeniusArtistNewPage : true;
         document.getElementById('is45CopyCover').checked = result.is45CopyCover !== undefined ? result.is45CopyCover : true;
@@ -648,6 +651,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('isGeniusArtistFollowButton').addEventListener('change', saveSettings);
     document.getElementById('isGeniusArtistSpreadsheetButton').addEventListener('change', saveSettings);
     document.getElementById('isGeniusArtistSearchArtistMetadata').addEventListener('change', saveSettings);
+    document.getElementById('isGeniusArtistBulkAwardIq').addEventListener('change', saveSettings);
     document.getElementById('isGeniusArtistRecords').addEventListener('change', saveSettings);
     document.getElementById('isGeniusArtistNewPage').addEventListener('change', saveSettings);
     document.getElementById('is45CopyCover').addEventListener('change', saveSettings);
@@ -1857,7 +1861,7 @@ const PROVIDED_SONGS_LIST = [
 let isBulkRunning = false;
 let isBulkPaused = false;
 
-document.addEventListener('DOMContentLoaded', function () {
+function initBulkAwardIq() {
     const loadDefaultListBtn = document.getElementById('loadDefaultListBtn');
     const clearBulkIqBtn = document.getElementById('clearBulkIqBtn');
     const bulkIqUrlsInput = document.getElementById('bulkIqUrlsInput');
@@ -2026,4 +2030,6 @@ document.addEventListener('DOMContentLoaded', function () {
         startBulkIqBtn.disabled = false;
         pauseBulkIqBtn.disabled = true;
     });
-});
+}
+
+initBulkAwardIq();
