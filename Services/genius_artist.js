@@ -624,14 +624,13 @@ chrome.storage.local.get([
                     const songData = await getApiData(songId, 'songs');
                     const song = songData.song || songData;
 
-                    const isAlreadyComplete = song.lyrics_state === 'complete' ||
-                                              song.transcription_iq_awarded === true ||
-                                              song.lyrics_marked_complete_by != null;
+                    const isAlreadyComplete = song.transcription_iq_awarded === true ||
+                                              song.current_user_metadata?.excluded_permissions?.includes('award_transcription_iq');
 
                     if (isAlreadyComplete) {
                         skipped++;
                     } else {
-                        const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq') ?? true;
+                        const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq');
                         if (!canAward) {
                             failed++;
                         } else {

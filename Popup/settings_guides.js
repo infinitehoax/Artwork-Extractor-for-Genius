@@ -1989,16 +1989,15 @@ function initBulkAwardIq() {
                 const songData = await getApiData(songId, 'songs');
                 const song = songData.song || songData;
 
-                const isAlreadyComplete = song.lyrics_state === 'complete' ||
-                                          song.transcription_iq_awarded === true ||
-                                          song.lyrics_marked_complete_by != null;
+                const isAlreadyComplete = song.transcription_iq_awarded === true ||
+                                          song.current_user_metadata?.excluded_permissions?.includes('award_transcription_iq');
 
                 if (isAlreadyComplete) {
                     skipped++;
                     bulkStatSkipped.textContent = skipped;
                     logBulk(`[SKIPPED] ${label} (Song #${songId}): Already marked complete / IQ awarded.`, '#ffff64');
                 } else {
-                    const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq') ?? true;
+                    const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq');
                     if (!canAward) {
                         failed++;
                         bulkStatFailed.textContent = failed;
