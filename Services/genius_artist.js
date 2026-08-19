@@ -625,7 +625,7 @@ chrome.storage.local.get([
                     const song = songData.song || songData;
 
                     const isAlreadyComplete = song.transcription_iq_awarded === true ||
-                                              song.current_user_metadata?.excluded_permissions?.includes('award_transcription_iq');
+                                              (song.lyrics_state === 'complete' && song.current_user_metadata?.excluded_permissions?.includes('award_transcription_iq'));
 
                     if (isAlreadyComplete) {
                         skipped++;
