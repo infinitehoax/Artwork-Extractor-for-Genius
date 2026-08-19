@@ -1975,6 +1975,12 @@ function initBulkAwardIq() {
                     if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status} fetching song page`);
                     const html = await pageRes.text();
 
+                    const csrfMatch = html.match(/<meta\s+name=["']csrf-token["']\s+content=["']([^"']+)["']/i) ||
+                                      html.match(/content=["']([^"']+)["']\s+name=["']csrf-token["']/i);
+                    if (csrfMatch) {
+                        window._cachedCsrfToken = csrfMatch[1];
+                    }
+
                     const match = html.match(/genius:\/\/songs\/(\d+)/) ||
                                   html.match(/"song":\s*\{\s*"id":\s*(\d+)/) ||
                                   html.match(/"Song ID",\s*"value":\s*(\d+)/) ||
@@ -1990,29 +1996,32 @@ function initBulkAwardIq() {
                 const song = songData.song || songData;
 
                 const isAlreadyComplete = song.transcription_iq_awarded === true ||
-                                          song.current_user_metadata?.excluded_permissions?.includes('award_transcription_iq');
+                                          (song.lyrics_state === 'complete' && song.current_user_metadata?.excluded_permissions?.includes('award_transcription_iq'));
+
+                const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq');
 
                 if (isAlreadyComplete) {
                     skipped++;
                     bulkStatSkipped.textContent = skipped;
                     logBulk(`[SKIPPED] ${label} (Song #${songId}): Already marked complete / IQ awarded.`, '#ffff64');
-                } else {
-                    const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq');
-                    if (!canAward) {
+                } else if (canAward) {
+                    const awardRes = await awardTranscriptionIq(songId);
+                    if (awardRes && awardRes.ok) {
+                        awarded++;
+                        bulkStatAwarded.textContent = awarded;
+                        logBulk(`[AWARDED] ${label} (Song #${songId}): Successfully awarded transcription IQ!`, '#99f2a5');
+                    } else {
                         failed++;
                         bulkStatFailed.textContent = failed;
-                        logBulk(`[INELIGIBLE] ${label} (Song #${songId}): Option not available or missing permission.`, '#fa7878');
+                        logBulk(`[FAILED] ${label} (Song #${songId}): ${awardRes?.statusText || awardRes?.error || 'Request failed'}`, '#fa7878');
+                    }
+                } else {
+                    failed++;
+                    bulkStatFailed.textContent = failed;
+                    if (song.lyrics_state !== 'complete') {
+                        logBulk(`[INELIGIBLE] ${label} (Song #${songId}): Lyrics incomplete or not transcribed yet.`, '#fa7878');
                     } else {
-                        const awardRes = await awardTranscriptionIq(songId);
-                        if (awardRes && awardRes.ok) {
-                            awarded++;
-                            bulkStatAwarded.textContent = awarded;
-                            logBulk(`[AWARDED] ${label} (Song #${songId}): Successfully awarded transcription IQ!`, '#99f2a5');
-                        } else {
-                            failed++;
-                            bulkStatFailed.textContent = failed;
-                            logBulk(`[FAILED] ${label} (Song #${songId}): ${awardRes?.statusText || awardRes?.error || 'Request failed'}`, '#fa7878');
-                        }
+                        logBulk(`[INELIGIBLE] ${label} (Song #${songId}): Option not available or missing permission.`, '#fa7878');
                     }
                 }
             } catch (err) {

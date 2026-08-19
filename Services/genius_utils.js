@@ -62,8 +62,43 @@ function getSongIds() {
 }
 
 function getCsrfToken() {
+    if (window._cachedCsrfToken) return window._cachedCsrfToken;
+
+    const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (metaToken) {
+        window._cachedCsrfToken = metaToken;
+        return metaToken;
+    }
+
     const match = document.cookie.match(/_csrf_token=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
+    if (match) {
+        const token = decodeURIComponent(match[1]);
+        window._cachedCsrfToken = token;
+        return token;
+    }
+
+    return '';
+}
+
+async function ensureCsrfToken() {
+    let token = getCsrfToken();
+    if (token) return token;
+
+    try {
+        const res = await fetch('https://genius.com/', { credentials: 'include' });
+        if (res.ok) {
+            const html = await res.text();
+            const match = html.match(/<meta\s+name=["']csrf-token["']\s+content=["']([^"']+)["']/i) ||
+                          html.match(/content=["']([^"']+)["']\s+name=["']csrf-token["']/i);
+            if (match) {
+                window._cachedCsrfToken = match[1];
+                return match[1];
+            }
+        }
+    } catch (e) {
+        console.warn("Could not fetch CSRF token from genius.com:", e);
+    }
+    return '';
 }
 
 // ? Shared rate limiter for every Genius API call the extension can fan out over a tracklist.
@@ -111,13 +146,17 @@ const rateLimitGeniusRequest = (function createGeniusRateLimiter(maxPerSecond) {
 })(GENIUS_REQUESTS_PER_SECOND);
 
 // ? Drop-in fetch for genius.com/api calls that charges the request against the shared budget above.
-function geniusFetch(url, options) {
-    return rateLimitGeniusRequest(() => fetch(url, options));
+function geniusFetch(url, options = {}) {
+    const fetchOptions = {
+        credentials: 'include',
+        ...options
+    };
+    return rateLimitGeniusRequest(() => fetch(url, fetchOptions));
 }
 
 async function getApiData(id, type) {
     return rateLimitGeniusRequest(async () => {
-        const response = await fetch(`https://genius.com/api/${type}/${id}`);
+        const response = await fetch(`https://genius.com/api/${type}/${id}`, { credentials: 'include' });
         if (!response.ok) throw new Error(`${type}/${id}: ${response.status} ${response.statusText}`);
 
         const json = await response.json();
@@ -278,12 +317,12 @@ async function updateAlbumMetadata(album, payload) {
 async function awardTranscriptionIq(songId) {
     if (!songId) return null;
     try {
+        const csrfToken = await ensureCsrfToken();
         const response = await geniusFetch(`https://genius.com/api/songs/${songId}/award_transcription_iq`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'Cookie': document.cookie,
-                'X-CSRF-Token': getCsrfToken(),
+                'X-CSRF-Token': csrfToken,
                 'User-Agent': 'ArtworkExtractorForGenius/0.7.9 (Artwork Extractor for Genius)'
             },
             body: JSON.stringify({ text_format: 'html,markdown,preview' })
