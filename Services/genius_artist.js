@@ -570,7 +570,7 @@ chrome.storage.local.get([
                 text: 'Bulk Award IQ',
                 width: "9.5rem",
                 onClick: async (button) => {
-                    await processArtistBulkAwardIq(artistId, button);
+                    openBulkIqModalOnSite({ artistId });
                 }
             }
         ]);
@@ -591,74 +591,468 @@ chrome.storage.local.get([
                 text: 'Bulk Award IQ',
                 width: "9.5rem",
                 onClick: async (button) => {
-                    await processArtistBulkAwardIq(artistId, button);
+                    openBulkIqModalOnSite({ artistId });
                 }
             }
         ]);
         profileContainer.parentNode.insertBefore(wrapper, profileContainer);
     }
 
-    async function processArtistBulkAwardIq(artistId, button) {
-        button.disabled = true;
-        button.textContent = 'Fetching songs...';
+    function openBulkIqModalOnSite(options = {}) {
+        if (document.getElementById("genius-bulk-iq-modal-overlay")) return;
 
-        try {
-            const songIds = await fetchAllSongIds(artistId);
-            const total = songIds.length;
-            if (total === 0) {
-                button.textContent = 'No songs found';
-                setTimeout(() => {
-                    button.textContent = 'Bulk Award IQ';
-                    button.disabled = false;
-                }, 3000);
+        document.body.style.overflow = "hidden";
+
+        let artistId = options.artistId || null;
+        if (!artistId) {
+            const pageMatch = document.documentElement.innerHTML.match(/\\"artist\\":\s*\{\s*\\"id\\":\s*(\d+)/) ||
+                              document.documentElement.innerHTML.match(/"primary_artist"\s*:\s*\{\s*"id"\s*:\s*(\d+)/);
+            if (pageMatch) artistId = pageMatch[1];
+        }
+
+        const overlay = document.createElement("div");
+        overlay.id = "genius-bulk-iq-modal-overlay";
+        Object.assign(overlay.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(0, 0, 0, 0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: "999999"
+        });
+
+        const modal = document.createElement("div");
+        Object.assign(modal.style, {
+            backgroundColor: "#fff",
+            width: "85%",
+            maxWidth: "800px",
+            maxHeight: "92vh",
+            padding: "1.5rem",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+            borderRadius: "6px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.4)",
+            fontFamily: `Programme, "Programme Pan", Arial, sans-serif`,
+            color: "#000",
+            overflowY: "auto"
+        });
+
+        const titleRow = document.createElement("div");
+        Object.assign(titleRow.style, {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
+        });
+
+        const titleHeader = document.createElement("div");
+        titleHeader.textContent = "Genius Bulk Award Transcription IQ (JSON Import)";
+        Object.assign(titleHeader.style, {
+            fontSize: "1.25rem",
+            fontWeight: "bold",
+            color: "#000"
+        });
+
+        const closeXBtn = document.createElement("button");
+        closeXBtn.type = "button";
+        closeXBtn.textContent = "✕";
+        Object.assign(closeXBtn.style, {
+            background: "none",
+            border: "none",
+            fontSize: "1.5rem",
+            cursor: "pointer",
+            color: "#666",
+            padding: "0 0.5rem"
+        });
+
+        titleRow.appendChild(titleHeader);
+        titleRow.appendChild(closeXBtn);
+
+        const description = document.createElement("div");
+        description.textContent = "Bulk award transcription IQ for songs across ALL artists on Genius. Paste JSON or song URLs/IDs below.";
+        Object.assign(description.style, {
+            fontSize: "0.85rem",
+            color: "#555"
+        });
+
+        const toolbar = document.createElement("div");
+        Object.assign(toolbar.style, {
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "center",
+            flexWrap: "wrap"
+        });
+
+        if (artistId) {
+            const loadArtistSongsBtn = document.createElement("button");
+            loadArtistSongsBtn.type = "button";
+            loadArtistSongsBtn.textContent = "Load Current Artist's Songs";
+            Object.assign(loadArtistSongsBtn.style, {
+                padding: "0.4rem 0.8rem",
+                border: "1px solid #000",
+                borderRadius: "4px",
+                backgroundColor: "#ffff64",
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                fontWeight: "bold"
+            });
+            toolbar.appendChild(loadArtistSongsBtn);
+
+            loadArtistSongsBtn.addEventListener("click", async () => {
+                loadArtistSongsBtn.disabled = true;
+                loadArtistSongsBtn.textContent = "Fetching artist songs...";
+                logMessage(`[INFO] Fetching song list for artist ID #${artistId}...`, "#ffff64");
+                try {
+                    const songIds = await fetchAllSongIds(artistId);
+                    if (!songIds || songIds.length === 0) {
+                        logMessage(`[WARNING] No songs found for artist ID #${artistId}.`, "#f59e0b");
+                    } else {
+                        textarea.value = JSON.stringify(songIds, null, 2);
+                        logMessage(`[INFO] Loaded ${songIds.length} song IDs into JSON textarea for artist #${artistId}. You can edit or add songs for ANY artist!`, "#99f2a5");
+                    }
+                } catch (err) {
+                    logMessage(`[ERROR] Failed to fetch artist songs: ${err.message}`, "#ef4444");
+                } finally {
+                    loadArtistSongsBtn.disabled = false;
+                    loadArtistSongsBtn.textContent = "Load Current Artist's Songs";
+                }
+            });
+        }
+
+        const formatJsonBtn = document.createElement("button");
+        formatJsonBtn.type = "button";
+        formatJsonBtn.textContent = "Format JSON";
+        Object.assign(formatJsonBtn.style, {
+            padding: "0.4rem 0.8rem",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            backgroundColor: "#f9f9f9",
+            fontSize: "0.8rem",
+            cursor: "pointer"
+        });
+        toolbar.appendChild(formatJsonBtn);
+
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.textContent = "Clear";
+        Object.assign(clearBtn.style, {
+            padding: "0.4rem 0.8rem",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            backgroundColor: "#f9f9f9",
+            fontSize: "0.8rem",
+            cursor: "pointer"
+        });
+        toolbar.appendChild(clearBtn);
+
+        const textarea = document.createElement("textarea");
+        textarea.rows = 8;
+        textarea.placeholder = `Paste JSON array/object or song URLs/IDs (works for ALL artists), e.g.:
+[
+  "https://genius.com/Jeremy-spencer-linda-lyrics",
+  11776445,
+  { "url": "https://genius.com/Jordan-knight-where-is-your-heart-tonight-acoustic-lyrics" }
+]
+OR line-separated URLs/IDs`;
+        Object.assign(textarea.style, {
+            width: "100%",
+            padding: "0.75rem",
+            boxSizing: "border-box",
+            fontFamily: "monospace",
+            fontSize: "0.82rem",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            resize: "vertical"
+        });
+
+        if (options.initialInput) {
+            textarea.value = options.initialInput;
+        }
+
+        formatJsonBtn.addEventListener("click", () => {
+            try {
+                const parsed = JSON.parse(textarea.value);
+                textarea.value = JSON.stringify(parsed, null, 2);
+                logMessage(`[INFO] Formatted JSON successfully.`, "#99f2a5");
+            } catch (e) {
+                logMessage(`[ERROR] Cannot format JSON: ${e.message}`, "#ef4444");
+            }
+        });
+
+        clearBtn.addEventListener("click", () => {
+            textarea.value = "";
+            statTotal.textContent = "0";
+            statAwarded.textContent = "0";
+            statSkipped.textContent = "0";
+            statFailed.textContent = "0";
+            logBox.innerHTML = "";
+            logMessage(`[INFO] Cleared input and logs.`, "#aaa");
+        });
+
+        const statsBar = document.createElement("div");
+        Object.assign(statsBar.style, {
+            display: "flex",
+            gap: "1.25rem",
+            background: "#f3f4f6",
+            padding: "0.6rem 1rem",
+            borderRadius: "4px",
+            fontSize: "0.85rem",
+            fontWeight: "bold"
+        });
+
+        const statTotal = document.createElement("span");
+        statTotal.innerHTML = 'Total: <span id="bulkModalTotal">0</span>';
+
+        const statAwarded = document.createElement("span");
+        statAwarded.style.color = "#16a34a";
+        statAwarded.innerHTML = 'Awarded: <span id="bulkModalAwarded">0</span>';
+
+        const statSkipped = document.createElement("span");
+        statSkipped.style.color = "#d97706";
+        statSkipped.innerHTML = 'Skipped: <span id="bulkModalSkipped">0</span>';
+
+        const statFailed = document.createElement("span");
+        statFailed.style.color = "#dc2626";
+        statFailed.innerHTML = 'Failed: <span id="bulkModalFailed">0</span>';
+
+        statsBar.appendChild(statTotal);
+        statsBar.appendChild(statAwarded);
+        statsBar.appendChild(statSkipped);
+        statsBar.appendChild(statFailed);
+
+        const controlsRow = document.createElement("div");
+        Object.assign(controlsRow.style, {
+            display: "flex",
+            gap: "0.75rem",
+            alignItems: "center"
+        });
+
+        const startBtn = document.createElement("button");
+        startBtn.type = "button";
+        startBtn.textContent = "Start Processing";
+        Object.assign(startBtn.style, {
+            padding: "0.5rem 1.25rem",
+            backgroundColor: "#ffff64",
+            color: "#000",
+            border: "1px solid #000",
+            borderRadius: "4px",
+            fontWeight: "bold",
+            fontSize: "0.85rem",
+            cursor: "pointer"
+        });
+
+        const pauseBtn = document.createElement("button");
+        pauseBtn.type = "button";
+        pauseBtn.textContent = "Pause";
+        pauseBtn.disabled = true;
+        Object.assign(pauseBtn.style, {
+            padding: "0.5rem 1rem",
+            backgroundColor: "#e5e7eb",
+            color: "#374151",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            fontSize: "0.85rem",
+            cursor: "pointer"
+        });
+
+        const closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.textContent = "Close";
+        Object.assign(closeBtn.style, {
+            padding: "0.5rem 1rem",
+            backgroundColor: "#fff",
+            color: "#000",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            fontSize: "0.85rem",
+            cursor: "pointer",
+            marginLeft: "auto"
+        });
+
+        controlsRow.appendChild(startBtn);
+        controlsRow.appendChild(pauseBtn);
+        controlsRow.appendChild(closeBtn);
+
+        const logBox = document.createElement("div");
+        Object.assign(logBox.style, {
+            height: "180px",
+            backgroundColor: "#111827",
+            color: "#f3f4f6",
+            padding: "0.75rem",
+            fontFamily: "monospace",
+            fontSize: "0.78rem",
+            borderRadius: "4px",
+            overflowY: "auto",
+            lineHeight: "1.4"
+        });
+
+        function logMessage(msg, color = "#eee") {
+            const line = document.createElement("div");
+            line.style.color = color;
+            line.textContent = msg;
+            logBox.appendChild(line);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        let isProcessing = false;
+        let isPaused = false;
+        let stopRequested = false;
+
+        function closeModal() {
+            stopRequested = true;
+            isProcessing = false;
+            document.body.style.overflow = "";
+            overlay.remove();
+        }
+
+        closeXBtn.addEventListener("click", closeModal);
+        closeBtn.addEventListener("click", closeModal);
+
+        pauseBtn.addEventListener("click", () => {
+            if (!isProcessing) return;
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? "Resume" : "Pause";
+            logMessage(isPaused ? "[INFO] Paused processing." : "[INFO] Resumed processing.", "#f59e0b");
+        });
+
+        startBtn.addEventListener("click", async () => {
+            if (isProcessing) return;
+
+            const rawInput = textarea.value.trim();
+            if (!rawInput) {
+                logMessage("[ERROR] Please paste JSON or song URLs/IDs before starting.", "#ef4444");
                 return;
             }
 
+            const parsedItems = parseBulkIqInputs(rawInput);
+            if (parsedItems.length === 0) {
+                logMessage("[ERROR] No valid items found in input.", "#ef4444");
+                return;
+            }
+
+            isProcessing = true;
+            isPaused = false;
+            stopRequested = false;
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = "Pause";
+
+            let total = parsedItems.length;
             let awarded = 0, skipped = 0, failed = 0;
 
+            const totalEl = modal.querySelector("#bulkModalTotal");
+            const awardedEl = modal.querySelector("#bulkModalAwarded");
+            const skippedEl = modal.querySelector("#bulkModalSkipped");
+            const failedEl = modal.querySelector("#bulkModalFailed");
+
+            if (totalEl) totalEl.textContent = total;
+            if (awardedEl) awardedEl.textContent = awarded;
+            if (skippedEl) skippedEl.textContent = skipped;
+            if (failedEl) failedEl.textContent = failed;
+
+            logMessage(`[START] Starting batch processing for ${total} item(s)...`, "#ffff64");
+
             for (let i = 0; i < total; i++) {
-                const songId = songIds[i];
-                button.textContent = `Awarding (${i + 1}/${total})...`;
+                if (stopRequested) break;
+
+                while (isPaused && !stopRequested) {
+                    await new Promise(r => setTimeout(r, 200));
+                }
+                if (stopRequested) break;
+
+                const item = parsedItems[i];
+                logMessage(`[PROCESSING (${i + 1}/${total})] Resolving song ID for item: ${typeof item === 'object' ? JSON.stringify(item) : item}...`, "#aaa");
+
+                let songId = null;
+                try {
+                    songId = await resolveSongIdFromInput(item);
+                } catch (err) {
+                    console.warn("Resolution error:", err);
+                }
+
+                if (!songId) {
+                    failed++;
+                    if (failedEl) failedEl.textContent = failed;
+                    logMessage(`[FAILED] (${i + 1}/${total}): Could not resolve valid Genius Song ID from '${typeof item === 'object' ? JSON.stringify(item) : item}'.`, "#ef4444");
+                    continue;
+                }
 
                 try {
-                    const songData = await getApiData(songId, 'songs');
+                    const songData = await getApiData(songId, "songs");
                     const song = songData.song || songData;
+                    const label = song.full_title || song.title || `Song #${songId}`;
 
                     const isAlreadyComplete = song.transcription_iq_awarded === true ||
                                               (song.lyrics_state === 'complete' && song.current_user_metadata?.excluded_permissions?.includes('award_transcription_iq'));
 
                     if (isAlreadyComplete) {
                         skipped++;
+                        if (skippedEl) skippedEl.textContent = skipped;
+                        logMessage(`[SKIPPED] ${label} (#${songId}): Already marked complete / IQ awarded.`, "#f59e0b");
                     } else {
                         const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq');
                         if (!canAward) {
                             failed++;
+                            if (failedEl) failedEl.textContent = failed;
+                            logMessage(`[FAILED] ${label} (#${songId}): Missing permission to award transcription IQ.`, "#ef4444");
                         } else {
                             const awardRes = await awardTranscriptionIq(songId);
                             if (awardRes && awardRes.ok) {
                                 awarded++;
+                                if (awardedEl) awardedEl.textContent = awarded;
+                                logMessage(`[AWARDED] ${label} (#${songId}): Successfully awarded transcription IQ!`, "#16a34a");
                             } else {
                                 failed++;
+                                if (failedEl) failedEl.textContent = failed;
+                                logMessage(`[FAILED] ${label} (#${songId}): ${awardRes?.statusText || awardRes?.error || 'Request failed'}`, "#ef4444");
                             }
                         }
                     }
-                } catch (e) {
+                } catch (err) {
                     failed++;
+                    if (failedEl) failedEl.textContent = failed;
+                    logMessage(`[FAILED] Song #${songId}: ${err.message}`, "#ef4444");
                 }
 
                 await new Promise(r => setTimeout(r, 600));
             }
 
-            button.textContent = `Done! +${awarded} IQ (${skipped} skip)`;
-        } catch (err) {
-            button.textContent = 'Awarding failed';
-            console.error("Error in processArtistBulkAwardIq:", err);
-        } finally {
-            setTimeout(() => {
-                button.textContent = 'Bulk Award IQ';
-                button.disabled = false;
-            }, 5000);
-        }
+            isProcessing = false;
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+            pauseBtn.textContent = "Pause";
+
+            if (!stopRequested) {
+                logMessage(`[DONE] Batch execution completed! Total: ${total}, Awarded: ${awarded}, Skipped: ${skipped}, Failed: ${failed}`, "#ffff64");
+            }
+        });
+
+        modal.appendChild(titleRow);
+        modal.appendChild(description);
+        modal.appendChild(toolbar);
+        modal.appendChild(textarea);
+        modal.appendChild(statsBar);
+        modal.appendChild(controlsRow);
+        modal.appendChild(logBox);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        logMessage(`[READY] Bulk Award IQ Modal ready. Paste JSON or song URLs for ANY artist to begin.`, "#aaa");
+    }
+
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request && request.action === 'open_bulk_iq_modal') {
+                openBulkIqModalOnSite({ initialInput: request.input });
+                sendResponse({ ok: true });
+            }
+        });
     }
 
     function FollowButtonArtistPage(artistId) {

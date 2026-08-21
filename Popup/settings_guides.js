@@ -1907,136 +1907,28 @@ function initBulkAwardIq() {
     });
 
     startBulkIqBtn.addEventListener('click', async () => {
-        if (isBulkRunning) return;
-
         const rawText = bulkIqUrlsInput.value.trim();
         if (!rawText) {
             logBulk('Error: No Genius song URLs or JSON provided.', '#fa7878');
             return;
         }
 
-        let items = [];
-        try {
-            if (rawText.startsWith('[') || rawText.startsWith('{')) {
-                const parsed = JSON.parse(rawText);
-                items = Array.isArray(parsed) ? parsed : [parsed];
-            } else {
-                items = rawText.split('\n').map(l => ({ url: l.trim() })).filter(o => o.url.length > 0);
-            }
-        } catch (e) {
-            items = rawText.split('\n').map(l => ({ url: l.trim() })).filter(o => o.url.length > 0);
-        }
-
-        items = items.filter(item => item && (item.url || item.id || item.song_id));
-
-        if (items.length === 0) {
-            logBulk('Error: Could not parse any valid Genius song entries.', '#fa7878');
-            return;
-        }
-
-        isBulkRunning = true;
-        isBulkPaused = false;
-        startBulkIqBtn.disabled = true;
-        pauseBulkIqBtn.disabled = false;
-        pauseBulkIqBtn.textContent = 'Pause';
-
-        let total = items.length;
-        let awarded = 0;
-        let skipped = 0;
-        let failed = 0;
-
-        bulkStatTotal.textContent = total;
-        bulkStatAwarded.textContent = awarded;
-        bulkStatSkipped.textContent = skipped;
-        bulkStatFailed.textContent = failed;
-
-        logBulk(`Starting batch execution for ${total} songs...`, '#99f2a5');
-
-        for (let i = 0; i < items.length; i++) {
-            if (!isBulkRunning) break;
-
-            while (isBulkPaused) {
-                await new Promise(r => setTimeout(r, 500));
-            }
-
-            const entry = items[i];
-            const url = entry.url || '';
-            const artist = entry.artist || '';
-            const title = entry.title || '';
-            const label = (artist && title) ? `${artist} - "${title}"` : (url || `Song #${entry.id || entry.song_id}`);
-
-            logBulk(`[${i + 1}/${total}] Checking: ${label}...`, '#aaa');
-
-            try {
-                let songId = entry.id || entry.song_id || null;
-
-                if (!songId && url) {
-                    const pageRes = await fetch(url, { credentials: 'include' });
-                    if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status} fetching song page`);
-                    const html = await pageRes.text();
-
-                    const csrfMatch = html.match(/<meta\s+name=["']csrf-token["']\s+content=["']([^"']+)["']/i) ||
-                                      html.match(/content=["']([^"']+)["']\s+name=["']csrf-token["']/i);
-                    if (csrfMatch) {
-                        window._cachedCsrfToken = csrfMatch[1];
-                    }
-
-                    const match = html.match(/genius:\/\/songs\/(\d+)/) ||
-                                  html.match(/"song":\s*\{\s*"id":\s*(\d+)/) ||
-                                  html.match(/"Song ID",\s*"value":\s*(\d+)/) ||
-                                  html.match(/songs\/(\d+)\/embed/);
-                    if (match) songId = match[1];
-                }
-
-                if (!songId) {
-                    throw new Error('Could not resolve Song ID');
-                }
-
-                const songData = await getApiData(songId, 'songs');
-                const song = songData.song || songData;
-
-                const isAlreadyComplete = song.transcription_iq_awarded === true ||
-                                          (song.lyrics_state === 'complete' && song.current_user_metadata?.excluded_permissions?.includes('award_transcription_iq'));
-
-                const canAward = song.current_user_metadata?.permissions?.includes('award_transcription_iq');
-
-                if (isAlreadyComplete) {
-                    skipped++;
-                    bulkStatSkipped.textContent = skipped;
-                    logBulk(`[SKIPPED] ${label} (Song #${songId}): Already marked complete / IQ awarded.`, '#ffff64');
-                } else if (canAward) {
-                    const awardRes = await awardTranscriptionIq(songId);
-                    if (awardRes && awardRes.ok) {
-                        awarded++;
-                        bulkStatAwarded.textContent = awarded;
-                        logBulk(`[AWARDED] ${label} (Song #${songId}): Successfully awarded transcription IQ!`, '#99f2a5');
-                    } else {
-                        failed++;
-                        bulkStatFailed.textContent = failed;
-                        logBulk(`[FAILED] ${label} (Song #${songId}): ${awardRes?.statusText || awardRes?.error || 'Request failed'}`, '#fa7878');
-                    }
+        if (typeof chrome !== 'undefined' && chrome.tabs) {
+            chrome.tabs.query({ url: "*://*.genius.com/*" }, (tabs) => {
+                if (tabs && tabs.length > 0) {
+                    const activeTab = tabs.find(t => t.active) || tabs[0];
+                    chrome.tabs.sendMessage(activeTab.id, { action: 'open_bulk_iq_modal', input: rawText }, (response) => {
+                        chrome.tabs.update(activeTab.id, { active: true });
+                        logBulk(`[ON-SITE] Opened Bulk Award IQ Modal on active Genius tab (ID #${activeTab.id})! Running directly on genius.com with full session authentication.`, '#99f2a5');
+                    });
                 } else {
-                    failed++;
-                    bulkStatFailed.textContent = failed;
-                    if (song.lyrics_state !== 'complete') {
-                        logBulk(`[INELIGIBLE] ${label} (Song #${songId}): Lyrics incomplete or not transcribed yet.`, '#fa7878');
-                    } else {
-                        logBulk(`[INELIGIBLE] ${label} (Song #${songId}): Option not available or missing permission.`, '#fa7878');
-                    }
+                    logBulk(`[NOTICE] Opening https://genius.com... Genius requires running on-site for session authentication.`, '#ffff64');
+                    chrome.tabs.create({ url: "https://genius.com" });
                 }
-            } catch (err) {
-                failed++;
-                bulkStatFailed.textContent = failed;
-                logBulk(`[ERROR] ${label}: ${err.message}`, '#fa7878');
-            }
-
-            await new Promise(r => setTimeout(r, 600));
+            });
+        } else {
+            logBulk('Please run Bulk Award IQ directly on https://genius.com via the on-site Bulk Award IQ button/modal.', '#ffff64');
         }
-
-        logBulk(`Batch execution completed! Total: ${total}, Awarded: ${awarded}, Skipped: ${skipped}, Failed: ${failed}`, '#ffff64');
-        isBulkRunning = false;
-        startBulkIqBtn.disabled = false;
-        pauseBulkIqBtn.disabled = true;
     });
 }
 
