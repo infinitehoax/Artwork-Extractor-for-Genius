@@ -59,8 +59,15 @@ async function resolveSongIdFromInput(item) {
             try {
                 if (global.mockFetch) {
                     const html = await global.mockFetch(fullUrl);
-                    const match = html.match(/"Song ID",\s*"value":\s*(\d+)/i) ||
+                    const match = html.match(/genius:\/\/songs\/(\d+)/i) ||
+                                  html.match(/\/songs\/(\d+)/i) ||
+                                  html.match(/pusherChannel":"song-(\d+)"/i) ||
                                   html.match(/pusher_channel":"song-(\d+)"/i) ||
+                                  html.match(/"Song ID",\s*"value":\s*(\d+)/i) ||
+                                  html.match(/"songId":\s*(\d+)/i) ||
+                                  html.match(/"song_id":\s*(\d+)/i) ||
+                                  html.match(/"song":\s*(\d+)/i) ||
+                                  html.match(/data-song-id=["']?(\d+)["']?/i) ||
                                   html.match(/"song":\s*\{\s*"_type":"song",[\s\S]*?"id":\s*(\d+)/i) ||
                                   html.match(/"id":\s*(\d+)/i);
                     if (match) return Number(match[1]);
@@ -97,11 +104,17 @@ async function resolveSongIdFromInput(item) {
     assert.strictEqual(await resolveSongIdFromInput({ song_id: "12771441" }), 12771441);
     assert.strictEqual(await resolveSongIdFromInput("https://genius.com/songs/11776445"), 11776445);
 
-    // Mock HTML fetch for URL resolution
+    // Mock HTML fetch for URL resolution - Legacy HTML format
     global.mockFetch = async (url) => {
         return `<html><body>{"key":"Song ID","value":11776445},"pusher_channel":"song-11776445"</body></html>`;
     };
     assert.strictEqual(await resolveSongIdFromInput("https://genius.com/Jeremy-spencer-take-a-look-around-mrs-brown-lyrics"), 11776445);
+
+    // Mock HTML fetch for URL resolution - Modern Genius React HTML format with twitter meta tag & pusherChannel
+    global.mockFetch = async (url) => {
+        return `<!doctype html><html><head><meta content="genius://songs/12695572" property="twitter:app:url:iphone" /></head><body>"pusherChannel":"song-12695572","songId":12695572</body></html>`;
+    };
+    assert.strictEqual(await resolveSongIdFromInput("https://genius.com/Kenny-barron-and-ann-hampton-callaway-cooks-bay-lyrics"), 12695572);
 
     console.log("All Bulk IQ parser and resolution tests passed successfully!");
 })();
