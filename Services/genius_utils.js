@@ -641,8 +641,15 @@ async function resolveSongIdFromInput(item) {
                 const res = await geniusFetch(fullUrl);
                 if (res.ok) {
                     const html = await res.text();
-                    const match = html.match(/"Song ID",\s*"value":\s*(\d+)/i) ||
+                    const match = html.match(/genius:\/\/songs\/(\d+)/i) ||
+                                  html.match(/\/songs\/(\d+)/i) ||
+                                  html.match(/pusherChannel":"song-(\d+)"/i) ||
                                   html.match(/pusher_channel":"song-(\d+)"/i) ||
+                                  html.match(/"Song ID",\s*"value":\s*(\d+)/i) ||
+                                  html.match(/"songId":\s*(\d+)/i) ||
+                                  html.match(/"song_id":\s*(\d+)/i) ||
+                                  html.match(/"song":\s*(\d+)/i) ||
+                                  html.match(/data-song-id=["']?(\d+)["']?/i) ||
                                   html.match(/"song":\s*\{\s*"_type":"song",[\s\S]*?"id":\s*(\d+)/i) ||
                                   html.match(/"id":\s*(\d+)/i);
                     if (match) return Number(match[1]);
