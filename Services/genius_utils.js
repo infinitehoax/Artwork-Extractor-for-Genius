@@ -580,3 +580,78 @@ async function fetchSuggestions(type, query) {
     const data = await response.json();
     return data.response[type];
 }
+
+function parseBulkIqInputs(rawText) {
+    if (!rawText || !rawText.trim()) return [];
+    const text = rawText.trim();
+
+    try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+            return parsed;
+        }
+        if (typeof parsed === 'object' && parsed !== null) {
+            if (Array.isArray(parsed.songs)) return parsed.songs;
+            if (Array.isArray(parsed.tracks)) return parsed.tracks;
+            if (Array.isArray(parsed.urls)) return parsed.urls;
+            if (Array.isArray(parsed.song_ids)) return parsed.song_ids;
+            if (Array.isArray(parsed.items)) return parsed.items;
+            return Object.values(parsed);
+        }
+    } catch (e) {
+        // Not valid JSON, parse line-by-line
+    }
+
+    return text.split(/\r?\n|,/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+}
+
+async function resolveSongIdFromInput(item) {
+    if (item === null || item === undefined) return null;
+
+    if (typeof item === 'number') {
+        return !isNaN(item) && item > 0 ? item : null;
+    }
+
+    if (typeof item === 'object') {
+        const id = item.id || item.song_id || item.songId || item.song_ID;
+        if (id && !isNaN(Number(id))) return Number(id);
+        if (item.url) item = item.url;
+        else if (item.path) item = item.path;
+        else if (item.link) item = item.link;
+    }
+
+    if (typeof item === 'string') {
+        const trimmed = item.trim();
+        if (!trimmed) return null;
+
+        if (/^\d+$/.test(trimmed)) {
+            return Number(trimmed);
+        }
+
+        const directSongMatch = trimmed.match(/\/songs\/(\d+)/i);
+        if (directSongMatch) {
+            return Number(directSongMatch[1]);
+        }
+
+        if (trimmed.includes('genius.com') || trimmed.startsWith('/')) {
+            const fullUrl = trimmed.startsWith('http') ? trimmed : `https://genius.com${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+            try {
+                const res = await geniusFetch(fullUrl);
+                if (res.ok) {
+                    const html = await res.text();
+                    const match = html.match(/"Song ID",\s*"value":\s*(\d+)/i) ||
+                                  html.match(/pusher_channel":"song-(\d+)"/i) ||
+                                  html.match(/"song":\s*\{\s*"_type":"song",[\s\S]*?"id":\s*(\d+)/i) ||
+                                  html.match(/"id":\s*(\d+)/i);
+                    if (match) return Number(match[1]);
+                }
+            } catch (e) {
+                console.warn("Failed to resolve song ID from Genius URL:", fullUrl, e);
+            }
+        }
+    }
+
+    return null;
+}
