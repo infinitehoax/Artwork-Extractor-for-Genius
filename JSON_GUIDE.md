@@ -251,21 +251,51 @@ When matching track objects in JSON to songs on an album page, the extension che
 3. `number`: Alternative track number field.
 4. `song_id`: Genius Song ID (e.g. `14082258`).
 
-### Main Credit & Custom Role Fields
-- Main credits: `primary_artists`, `featured_artists`, `producers`, `writers`, `tags`.
-- Custom performance credits: `additional_credits`, `custom_performances`, or `credits`.
+### Main Credit, Metadata & Custom Role Fields
+Top-level album properties and track-specific objects support all metadata fields available in Main Credits, Additional Credits, and Single Song Advanced JSON:
+
+| Field Name | Data Type | Description |
+| :--- | :--- | :--- |
+| `primary_artists` | `Array<string \| object>` | Performing primary artists. |
+| `featured_artists` | `Array<string \| object>` | Featured performing artists. |
+| `producers` / `producer_artists` | `Array<string \| object>` | Music producers. |
+| `writers` / `writer_artists` | `Array<string \| object>` | Songwriters and composers. |
+| `primary_tag` / `primary_tag_id` | `string \| integer \| null` | Genre/Primary tag (e.g., `"Pop"`, `"Rap"`, `16`, `1434`). |
+| `tags` | `Array<string \| object>` | Secondary genre/theme tags (e.g. `["Pop", "Dance"]`). |
+| `language` | `string \| null` | ISO two-letter language code (e.g., `"en"`, `"es"`). |
+| `youtube_url` / `youtube_links` | `string \| Array<string>` | YouTube video/playlist URL. Auto-cleans playlist parameter strings. |
+| `youtube_start` | `string \| integer` | Start offset in seconds (e.g., `"0"`, `21`). |
+| `soundcloud_url` / `soundcloud_links` | `string \| Array<string>` | SoundCloud track/playlist URL. |
+| `release_date_components` / `release_date` | `object \| null` | Date object: `{"year": 2024, "month": 10, "day": 31}`. |
+| `recording_location` / `recorded_at` | `string \| null` | Studio or recording location description. |
+| `additional_credits` / `custom_performances` / `credits` | `Array<object>` | Array of custom role objects (e.g. `[{"role": "Synthesizer", "artists": ["Name"]}]`). |
 
 ### Album Batch Concrete JSON Examples
 
-#### Example: Track-Specific Custom Credits
+#### Example: Track-Specific Custom Credits & Full Metadata
 ```json
 {
   "primary_artists": ["Band Name"],
-  "tags": ["Rock"],
+  "primary_tag": "Rock",
+  "language": "en",
+  "release_date_components": {
+    "year": 2024,
+    "month": 10,
+    "day": 31
+  },
   "tracks": [
     {
       "track": 1,
+      "primary_artists": ["Band Name"],
       "writers": ["Singer Name"],
+      "primary_tag": "Rock",
+      "tags": ["Rock", "Alternative"],
+      "language": "en",
+      "youtube_url": "https://www.youtube.com/watch?v=kJh_Eu4qfdQ",
+      "youtube_start": "0",
+      "soundcloud_url": "https://soundcloud.com/band/track-1",
+      "release_date_components": { "year": 2024, "month": 10, "day": 31 },
+      "recording_location": "Abbey Road Studios",
       "additional_credits": [
         { "role": "Lead Vocals", "artists": ["Singer Name"] },
         { "role": "Drums", "artists": ["Drummer Name"] }
@@ -274,6 +304,10 @@ When matching track objects in JSON to songs on an album page, the extension che
     {
       "track": 2,
       "writers": ["Guitarist Name"],
+      "primary_tag": "Rock",
+      "tags": ["Rock", "Indie"],
+      "language": "en",
+      "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       "additional_credits": [
         { "role": "Bass Guitar", "artists": ["Bassist Name"] }
       ]
