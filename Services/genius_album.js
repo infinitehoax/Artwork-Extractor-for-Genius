@@ -4710,6 +4710,14 @@ chrome.storage.local.get([
                     const songWriters = (trackCredits.writersArray !== undefined ? trackCredits.writersArray : creditsState.writersArray).map(a => a.id ? { id: a.id, name: a.name } : { name: a.name });
                     const songSecondaryTags = (trackCredits.secondaryTagsArray !== undefined ? trackCredits.secondaryTagsArray : creditsState.secondaryTagsArray).map(t => t.id ? { id: t.id, name: t.name } : { name: t.name });
 
+                    const songYoutubeUrl = trackCredits.youtubeUrl !== undefined ? trackCredits.youtubeUrl : (Array.isArray(youtubePayload) ? youtubePayload[i] : youtubePayload);
+                    const songSoundcloudUrl = trackCredits.soundcloudUrl !== undefined ? trackCredits.soundcloudUrl : (Array.isArray(creditsState.soundcloudLinks) ? creditsState.soundcloudLinks[i] : creditsState.soundcloudLinks);
+                    const songPrimaryTag = trackCredits.primaryTag !== undefined ? trackCredits.primaryTag : primaryTagPayload;
+                    const songReleaseDate = trackCredits.releaseDateComponents !== undefined ? trackCredits.releaseDateComponents : releaseDatePayload;
+                    const songRecordedAt = trackCredits.recordingLocation !== undefined ? trackCredits.recordingLocation : recordedPayload;
+                    const songLanguage = trackCredits.language !== undefined ? trackCredits.language : languagePayload;
+                    const songYoutubeStart = trackCredits.youtubeStart !== undefined ? trackCredits.youtubeStart : undefined;
+
                     const payload = await processMainPayload(
                         songId,
                         existingSongData,
@@ -4720,13 +4728,15 @@ chrome.storage.local.get([
                         songFeaturedArtists,
                         songProducers,
                         songWriters,
-                        youtubePayload[i],
-                        primaryTagPayload,
+                        songYoutubeUrl,
+                        songPrimaryTag,
                         songSecondaryTags,
-                        releaseDatePayload,
-                        recordedPayload,
+                        songReleaseDate,
+                        songRecordedAt,
                         songRelationshipsPayload[i],
-                        languagePayload
+                        songLanguage,
+                        songSoundcloudUrl,
+                        songYoutubeStart
                     );
 
                     if (!mainPayload[songId]) mainPayload[songId] = [];
@@ -4886,7 +4896,9 @@ chrome.storage.local.get([
                     releaseDatePayload,
                     recordedPayload,
                     songRelationshipPayload,
-                    languagePayload
+                    languagePayload,
+                    soundcloudPayload,
+                    youtubeStartPayload
                 ) {
 
                     let existingId = existingSongData.id;
@@ -5001,6 +5013,24 @@ chrome.storage.local.get([
                             payload.song.youtube_url = null;
                         } else if (!existingYoutubeLink) {
                             payload.song.youtube_url = youtubePayload;
+                        } else if (youtubePayload) {
+                            payload.song.youtube_url = youtubePayload;
+                        }
+                    }
+
+                    if (youtubeStartPayload !== undefined && youtubeStartPayload !== null) {
+                        payload.song.youtube_start = String(youtubeStartPayload);
+                    }
+
+                    if (soundcloudPayload || checkboxStates.overwriteSoundCloud || checkboxStates.removeSoundCloud) {
+                        if (checkboxStates.overwriteSoundCloud && soundcloudPayload) {
+                            payload.song.soundcloud_url = soundcloudPayload;
+                        } else if (checkboxStates.removeSoundCloud && creditsState.soundcloudLinks === "Delete") {
+                            payload.song.soundcloud_url = null;
+                        } else if (!existingSoundcloudLink) {
+                            payload.song.soundcloud_url = soundcloudPayload;
+                        } else if (soundcloudPayload) {
+                            payload.song.soundcloud_url = soundcloudPayload;
                         }
                     }
 
@@ -7475,10 +7505,40 @@ chrome.storage.local.get([
 
                 creditsState.trackCreditsMap = {};
 
+                function resolvePrimaryTagValue(val) {
+                    if (val === null || val === undefined) return null;
+                    if (typeof val === 'number') return val;
+                    if (typeof val === 'object' && val.id) return Number(val.id);
+                    const strVal = String(val).trim().toLowerCase();
+                    const tagMatch = optionSets["Primary Tag"]?.find(o =>
+                        String(o.value) === strVal || String(o.label).toLowerCase() === strVal
+                    );
+                    if (tagMatch) return tagMatch.value;
+                    const num = parseInt(strVal, 10);
+                    return isNaN(num) ? null : num;
+                }
+
+                function cleanYouTubeUrl(url) {
+                    if (!url) return "";
+                    try {
+                        const parsed = new URL(url);
+                        if (parsed.hostname.includes("youtube.com")) {
+                            const v = parsed.searchParams.get("v");
+                            return v ? `https://www.youtube.com/watch?v=${v}` : url;
+                        } else if (parsed.hostname.includes("youtu.be")) {
+                            const v = parsed.pathname.replace("/", "");
+                            return v ? `https://www.youtube.com/watch?v=${v}` : url;
+                        }
+                    } catch {
+                        return url;
+                    }
+                    return url;
+                }
+
                 let primaryArtistsSource = data.primary_artists;
                 let featuredArtistsSource = data.featured_artists;
-                let producersSource = data.producers;
-                let writersSource = data.writers;
+                let producersSource = data.producers || data.producer_artists;
+                let writersSource = data.writers || data.writer_artists;
                 let tagsSource = data.tags;
 
                 if (Array.isArray(primaryArtistsSource)) {
@@ -7534,6 +7594,68 @@ chrome.storage.local.get([
                         }
                     }
                     renderTagsForField(creditsState.secondaryTagsArray, 'tags');
+                }
+
+                let primaryTagSource = data.primary_tag !== undefined ? data.primary_tag : data.primary_tag_id;
+                if (primaryTagSource !== undefined && primaryTagSource !== null) {
+                    const resolvedPrimaryTag = resolvePrimaryTagValue(primaryTagSource);
+                    if (resolvedPrimaryTag !== null) {
+                        creditsState.primaryTagsArray = [resolvedPrimaryTag];
+                        const primaryTagSelect = document.querySelector('select[name="primary_tag"]') || [...document.querySelectorAll('select')].find(s => s.options && [...s.options].some(o => o.text === "Rap" || o.text === "Pop"));
+                        if (primaryTagSelect) {
+                            primaryTagSelect.value = resolvedPrimaryTag;
+                            primaryTagSelect.dispatchEvent(new Event('change'));
+                        }
+                    }
+                }
+
+                if (data.language !== undefined && data.language !== null) {
+                    creditsState.languageArray = [data.language];
+                    const languageSelect = document.querySelector('select[name="language"]') || [...document.querySelectorAll('select')].find(s => s.options && [...s.options].some(o => o.text === "English" || o.text === "Spanish" || o.value === "en"));
+                    if (languageSelect) {
+                        languageSelect.value = data.language;
+                        languageSelect.dispatchEvent(new Event('change'));
+                    }
+                }
+
+                let releaseDateSource = data.release_date_components || data.release_date;
+                if (releaseDateSource && typeof releaseDateSource === 'object') {
+                    creditsState.releaseDateArray = [{
+                        year: releaseDateSource.year ? parseInt(releaseDateSource.year, 10) : null,
+                        month: releaseDateSource.month ? parseInt(releaseDateSource.month, 10) : null,
+                        day: releaseDateSource.day ? parseInt(releaseDateSource.day, 10) : null
+                    }];
+                }
+
+                let recordedSource = data.recording_location !== undefined ? data.recording_location : data.recorded_at;
+                if (recordedSource !== undefined && recordedSource !== null) {
+                    creditsState.recordedArray = String(recordedSource);
+                    const recordedInput = document.querySelector('input[name="recorded_at"]');
+                    if (recordedInput) {
+                        recordedInput.value = creditsState.recordedArray;
+                    }
+                }
+
+                let youtubeSource = data.youtube_url !== undefined ? data.youtube_url : data.youtube_links;
+                if (youtubeSource !== undefined && youtubeSource !== null) {
+                    if (Array.isArray(youtubeSource)) {
+                        creditsState.youtubeLinks = youtubeSource.map(u => cleanYouTubeUrl(u));
+                    } else {
+                        creditsState.youtubeLinks = cleanYouTubeUrl(youtubeSource);
+                    }
+                    const youtubeInput = document.querySelector('input[name="youtube_links"]');
+                    if (youtubeInput) {
+                        youtubeInput.value = Array.isArray(creditsState.youtubeLinks) ? creditsState.youtubeLinks.join('\n') : creditsState.youtubeLinks;
+                    }
+                }
+
+                let soundcloudSource = data.soundcloud_url !== undefined ? data.soundcloud_url : data.soundcloud_links;
+                if (soundcloudSource !== undefined && soundcloudSource !== null) {
+                    creditsState.soundcloudLinks = soundcloudSource;
+                    const soundcloudInput = document.querySelector('input[name="soundcloud_links"]');
+                    if (soundcloudInput) {
+                        soundcloudInput.value = Array.isArray(creditsState.soundcloudLinks) ? creditsState.soundcloudLinks.join('\n') : creditsState.soundcloudLinks;
+                    }
                 }
 
                 const additionalGroupsMap = new Map();
@@ -7711,6 +7833,46 @@ chrome.storage.local.get([
                             creditsState.trackCreditsMap[targetSongId].secondaryTagsArray = resolvedList;
                         }
 
+                        let trackPrimaryTagSource = trackData.primary_tag !== undefined ? trackData.primary_tag : trackData.primary_tag_id;
+                        if (trackPrimaryTagSource !== undefined && trackPrimaryTagSource !== null) {
+                            const resolvedTag = resolvePrimaryTagValue(trackPrimaryTagSource);
+                            if (resolvedTag !== null) {
+                                creditsState.trackCreditsMap[targetSongId].primaryTag = resolvedTag;
+                            }
+                        }
+
+                        if (trackData.language !== undefined && trackData.language !== null) {
+                            creditsState.trackCreditsMap[targetSongId].language = trackData.language;
+                        }
+
+                        let trackYoutubeSource = trackData.youtube_url !== undefined ? trackData.youtube_url : trackData.youtube_links;
+                        if (trackYoutubeSource !== undefined && trackYoutubeSource !== null) {
+                            creditsState.trackCreditsMap[targetSongId].youtubeUrl = cleanYouTubeUrl(trackYoutubeSource);
+                        }
+
+                        if (trackData.youtube_start !== undefined && trackData.youtube_start !== null) {
+                            creditsState.trackCreditsMap[targetSongId].youtubeStart = trackData.youtube_start;
+                        }
+
+                        let trackSoundcloudSource = trackData.soundcloud_url !== undefined ? trackData.soundcloud_url : trackData.soundcloud_links;
+                        if (trackSoundcloudSource !== undefined && trackSoundcloudSource !== null) {
+                            creditsState.trackCreditsMap[targetSongId].soundcloudUrl = trackSoundcloudSource;
+                        }
+
+                        let trackReleaseDateSource = trackData.release_date_components || trackData.release_date;
+                        if (trackReleaseDateSource && typeof trackReleaseDateSource === 'object') {
+                            creditsState.trackCreditsMap[targetSongId].releaseDateComponents = {
+                                year: trackReleaseDateSource.year ? parseInt(trackReleaseDateSource.year, 10) : null,
+                                month: trackReleaseDateSource.month ? parseInt(trackReleaseDateSource.month, 10) : null,
+                                day: trackReleaseDateSource.day ? parseInt(trackReleaseDateSource.day, 10) : null
+                            };
+                        }
+
+                        let trackRecordedSource = trackData.recording_location !== undefined ? trackData.recording_location : trackData.recorded_at;
+                        if (trackRecordedSource !== undefined && trackRecordedSource !== null) {
+                            creditsState.trackCreditsMap[targetSongId].recordingLocation = String(trackRecordedSource);
+                        }
+
                         const rawAdditional = trackData.additional_credits || trackData.custom_performances || trackData.credits;
                         if (Array.isArray(rawAdditional)) {
                             for (const creditGroup of rawAdditional) {
@@ -7885,6 +8047,17 @@ chrome.storage.local.get([
                         {
                             track: 1,
                             primary_artists: ['Artist Name'],
+                            featured_artists: ['Featured Artist'],
+                            producers: ['Producer Name'],
+                            writers: ['Writer Name'],
+                            primary_tag: 'Pop',
+                            tags: ['Pop', 'Dance'],
+                            language: 'en',
+                            youtube_url: 'https://www.youtube.com/watch?v=...',
+                            youtube_start: '0',
+                            soundcloud_url: 'https://soundcloud.com/...',
+                            release_date_components: { year: 2024, month: 10, day: 31 },
+                            recording_location: 'Studio Name',
                             additional_credits: [{ role: 'Synthesizer', artists: ['Musician Name'] }]
                         },
                         {
@@ -7948,7 +8121,14 @@ chrome.storage.local.get([
                                     featured_artists: [],
                                     producers: [],
                                     writers: [],
+                                    primary_tag: null,
                                     tags: [],
+                                    language: null,
+                                    youtube_url: "",
+                                    youtube_start: "0",
+                                    soundcloud_url: "",
+                                    release_date_components: { year: null, month: null, day: null },
+                                    recording_location: "",
                                     additional_credits: []
                                 };
                             }
@@ -7960,7 +8140,14 @@ chrome.storage.local.get([
                                 featured_artists: (song.featured_artists || []).map(a => a.name),
                                 producers: (song.producer_artists || []).map(a => a.name),
                                 writers: (song.writer_artists || []).map(a => a.name),
+                                primary_tag: song.primary_tag ? song.primary_tag.name : null,
                                 tags: (song.tags || []).map(t => t.name),
+                                language: song.language || null,
+                                youtube_url: song.youtube_url || "",
+                                youtube_start: song.youtube_start || "0",
+                                soundcloud_url: song.soundcloud_url || "",
+                                release_date_components: song.release_date_components || { year: null, month: null, day: null },
+                                recording_location: song.recording_location || "",
                                 additional_credits: (song.custom_performances || []).map(cp => ({
                                     role: cp.label,
                                     artists: (cp.artists || []).map(a => a.name)
