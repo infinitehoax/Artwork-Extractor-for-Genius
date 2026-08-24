@@ -182,30 +182,9 @@ chrome.storage.local.get([
 
             if (isGeniusAlbumEditTracklist) {
                 addTracklistCheckboxes(userData);
-                bulkAddSongsButton(albumId);
             }
 
-            if (isGeniusAlbumBulkInstrumental) {
-                bulkInstrumentalButton(albumId);
-            }
-
-            if (isGeniusAlbumSongCreditsButton) songCreditsButtonAlbumPage(songIds);
-            //if (isGeniusAlbumCleanupButton) cleanupAlbumType(albumData);
-
-
-            /*async function songDataFunctions() {
-                const songDataAlbum = await Promise.all(
-                    songIds.map(async songId => {
-                        const { song: songData } = await getApiData(songId, "songs");
-                        return songData;
-                    })
-                );
-                if (!songDataAlbum) return;
-
-                if (isGeniusAlbumFollowButton) followButtonAlbumPage(songDataAlbum, albumData);
-                if (isGeniusAlbumCleanupButton) cleanupMetadata(songDataAlbum, userData);
-                if (isGeniusAlbumAlbumPageLyrics) lyricStateTracklist(songDataAlbum, userData);
-            }*/
+            renderAlbumDropdownNew(albumId, songIds, userData, albumData, null);
 
             async function songDataFunctions() {
                 // ? Every function below needs the full song payload, which the API only serves one song at a time.
@@ -217,7 +196,7 @@ chrome.storage.local.get([
 
                 if (!songDataAlbum.length) return;
 
-                if (isGeniusAlbumFollowButton) followButtonAlbumPage(songDataAlbum, albumData);
+                renderAlbumDropdownNew(albumId, songIds, userData, albumData, songDataAlbum);
                 if (isGeniusAlbumCleanupButton) cleanupMetadata(songDataAlbum, userData);
                 if (isGeniusAlbumAlbumPageLyrics) lyricStateTracklist(songDataAlbum, userData);
             }
@@ -251,9 +230,7 @@ chrome.storage.local.get([
             if (isGeniusAlbumUploadCover) monitorCover(albumId);
 
             getSongData(document.documentElement.innerHTML).then(json => {
-                if (isGeniusAlbumSongCreditsButton) songCreditsButtonAlbumPageOld(json);
-                if (isGeniusAlbumBulkInstrumental) bulkInstrumentalButtonOld();
-                if (isGeniusAlbumFollowButton) followButtonAlbumPageOld(json);
+                renderAlbumDropdownOld(json);
                 if (isGeniusAlbumCleanupButton) cleanupMetadataOld(userId, userRoles, json);
                 if (isGeniusAlbumAlbumPageLyrics) lyricStateTracklistOld(userRoles, json);
             });
@@ -1081,6 +1058,311 @@ chrome.storage.local.get([
             childList: true,
             subtree: true
         });
+    }
+
+    function createAlbumActionsDropdown({ container, smallButtonClass, isOldUi = false, items = [] }) {
+        if (!container || !items.length) return null;
+
+        const existingDropdown = container.querySelector("#genius-album-actions-dropdown");
+        if (existingDropdown) existingDropdown.remove();
+
+        const dropdownContainer = document.createElement("div");
+        dropdownContainer.id = "genius-album-actions-dropdown";
+        dropdownContainer.style.position = "relative";
+        dropdownContainer.style.display = "inline-block";
+
+        const dropdownButton = document.createElement("button");
+        dropdownButton.type = "button";
+        if (smallButtonClass) {
+            dropdownButton.className = smallButtonClass;
+        } else {
+            dropdownButton.className = "square_button u-bottom_margin";
+            dropdownButton.style.marginRight = "0.25rem";
+        }
+
+        const buttonText = document.createElement("span");
+        buttonText.textContent = "More";
+
+        const arrowSpan = document.createElement("span");
+        arrowSpan.style.marginLeft = "0.375rem";
+        arrowSpan.style.display = "inline-flex";
+        arrowSpan.style.alignItems = "center";
+
+        const arrowClosed = "▼";
+        const arrowOpen = "▲";
+        arrowSpan.textContent = arrowClosed;
+
+        if (smallButtonClass) {
+            dropdownButton.style.display = "inline-flex";
+            dropdownButton.style.alignItems = "center";
+            dropdownButton.style.justifyContent = "center";
+        }
+
+        dropdownButton.appendChild(buttonText);
+        dropdownButton.appendChild(arrowSpan);
+
+        const dropdownMenu = document.createElement("div");
+        dropdownMenu.className = "Dropdown__ContentContainer";
+        Object.assign(dropdownMenu.style, {
+            display: "none",
+            position: "absolute",
+            top: "100%",
+            left: "0",
+            marginTop: "0.25rem",
+            backgroundColor: "#fff",
+            border: "1px solid #000",
+            borderRadius: "4px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            zIndex: "1000",
+            minWidth: "160px",
+            overflow: "hidden"
+        });
+
+        const ul = document.createElement("ul");
+        Object.assign(ul.style, {
+            listStyle: "none",
+            margin: "0",
+            padding: "0"
+        });
+
+        items.forEach(item => {
+            const li = document.createElement("li");
+            const menuBtn = document.createElement("button");
+            menuBtn.type = "button";
+            menuBtn.textContent = item.label;
+            if (item.id) menuBtn.id = item.id;
+
+            Object.assign(menuBtn.style, {
+                width: "100%",
+                padding: "0.5rem 0.75rem",
+                textAlign: "left",
+                background: "none",
+                border: "none",
+                fontFamily: "inherit",
+                fontSize: "0.85rem",
+                color: "#000",
+                cursor: "pointer",
+                whiteSpace: "nowrap"
+            });
+
+            menuBtn.addEventListener("mouseenter", () => menuBtn.style.backgroundColor = "#f3f4f6");
+            menuBtn.addEventListener("mouseleave", () => menuBtn.style.backgroundColor = "transparent");
+
+            menuBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                dropdownMenu.style.display = "none";
+                arrowSpan.textContent = arrowClosed;
+                if (typeof item.onClick === "function") {
+                    item.onClick(menuBtn);
+                }
+            });
+
+            li.appendChild(menuBtn);
+            ul.appendChild(li);
+        });
+
+        dropdownMenu.appendChild(ul);
+        dropdownContainer.appendChild(dropdownButton);
+        dropdownContainer.appendChild(dropdownMenu);
+
+        dropdownButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isVisible = dropdownMenu.style.display === "block";
+
+            document.querySelectorAll("#genius-album-actions-dropdown .Dropdown__ContentContainer").forEach(menu => {
+                menu.style.display = "none";
+            });
+
+            dropdownMenu.style.display = isVisible ? "none" : "block";
+            arrowSpan.textContent = isVisible ? arrowClosed : arrowOpen;
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!dropdownContainer.contains(e.target)) {
+                dropdownMenu.style.display = "none";
+                arrowSpan.textContent = arrowClosed;
+            }
+        });
+
+        return dropdownContainer;
+    }
+
+    function renderAlbumDropdownNew(albumId, songIds, userData, albumData, songDataAlbum) {
+        const { stickyToolbarLeft, smallButton } = getDomElements();
+        if (!stickyToolbarLeft || !smallButton) return;
+
+        const items = [];
+
+        if (isGeniusAlbumEditTracklist) {
+            items.push({
+                id: "genius-album-bulk-add-item",
+                label: "Bulk Add Songs",
+                onClick: () => openBulkAddModal(albumId)
+            });
+        }
+
+        if (isGeniusAlbumBulkInstrumental) {
+            items.push({
+                id: "genius-album-bulk-inst-item",
+                label: "Bulk Instrumental",
+                onClick: () => openBulkInstrumentalModal(albumId)
+            });
+        }
+
+        if (isGeniusAlbumSongCreditsButton) {
+            items.push({
+                id: "genius-album-credits-item",
+                label: "Song Credits",
+                onClick: () => openSongCreditsModal(songIds)
+            });
+        }
+
+        if (isGeniusAlbumFollowButton) {
+            let followLabel = "Follow";
+            let allFollowStates = [];
+            let isFollowingAll = false;
+
+            if (songDataAlbum && songDataAlbum.length) {
+                const followingSongStates = songDataAlbum.map(song => ({ songId: song.id, following: song.current_user_metadata?.interactions?.following }));
+                const followingAlbumStates = { songId: albumData.id, following: albumData.current_user_metadata?.interactions?.following, isAlbum: true };
+
+                allFollowStates = [...followingSongStates, followingAlbumStates];
+                const initiallyFollowing = allFollowStates.filter(s => s.following);
+                isFollowingAll = initiallyFollowing.length === allFollowStates.length;
+
+                followLabel = isFollowingAll ? "Following" : "Follow";
+            }
+
+            items.push({
+                id: "genius-album-follow-item",
+                label: followLabel,
+                onClick: async (btn) => {
+                    if (!allFollowStates.length && songIds && songIds.length) {
+                        btn.textContent = "Loading…";
+                        btn.disabled = true;
+                        const fetched = (await getApiDataBatch(songIds, "songs")).map(d => d?.song).filter(Boolean);
+                        const followingSongStates = fetched.map(song => ({ songId: song.id, following: song.current_user_metadata?.interactions?.following }));
+                        const followingAlbumStates = { songId: albumData.id, following: albumData.current_user_metadata?.interactions?.following, isAlbum: true };
+                        allFollowStates = [...followingSongStates, followingAlbumStates];
+                        const initiallyFollowing = allFollowStates.filter(s => s.following);
+                        isFollowingAll = initiallyFollowing.length === allFollowStates.length;
+                    }
+
+                    btn.disabled = true;
+
+                    if (!isFollowingAll) {
+                        btn.textContent = "Following…";
+                        const toFollow = allFollowStates.filter(s => !s.following);
+                        await Promise.all(toFollow.map(s => followId(s.songId, s.isAlbum ? "albums" : "songs", "follow")));
+                        toFollow.forEach(s => s.following = true);
+                        isFollowingAll = true;
+                        btn.textContent = "Following";
+                    } else {
+                        btn.textContent = "Unfollowing…";
+                        const toUnfollow = allFollowStates.filter(s => s.following);
+                        await Promise.all(toUnfollow.map(s => followId(s.songId, s.isAlbum ? "albums" : "songs", "unfollow")));
+                        toUnfollow.forEach(s => s.following = false);
+                        isFollowingAll = false;
+                        btn.textContent = "Follow";
+                    }
+
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        if (!items.length) return;
+
+        const dropdown = createAlbumActionsDropdown({
+            container: stickyToolbarLeft,
+            smallButtonClass: smallButton.className,
+            isOldUi: false,
+            items
+        });
+
+        if (dropdown && !stickyToolbarLeft.contains(dropdown)) {
+            stickyToolbarLeft.appendChild(dropdown);
+        }
+    }
+
+    function renderAlbumDropdownOld(songData) {
+        const albumAdminMenu = document.querySelector('album-admin-menu');
+        if (!albumAdminMenu) return;
+
+        const items = [];
+        const albumId = getId("album") || document.querySelector("meta[content*='Album ID']")?.content.match(/"Album ID","value":(\d+)/)?.[1];
+
+        if (isGeniusAlbumEditTracklist && albumId) {
+            items.push({
+                id: "genius-album-bulk-add-item-old",
+                label: "Bulk Add Songs",
+                onClick: () => openBulkAddModal(albumId)
+            });
+        }
+
+        if (isGeniusAlbumBulkInstrumental && albumId) {
+            items.push({
+                id: "genius-album-bulk-inst-item-old",
+                label: "Bulk Instrumental",
+                onClick: () => openBulkInstrumentalModal(albumId)
+            });
+        }
+
+        if (isGeniusAlbumSongCreditsButton && songData) {
+            items.push({
+                id: "genius-album-credits-item-old",
+                label: "Song Credits",
+                onClick: () => openSongCreditsOldModal(songData)
+            });
+        }
+
+        if (isGeniusAlbumFollowButton && songData) {
+            const storageKey = "followState";
+            sessionStorage.removeItem(storageKey);
+            const followingStates = songData.map(data => ({
+                songId: data.response?.song?.id,
+                following: data.response?.song?.current_user_metadata?.interactions?.following
+            }));
+            const initiallyFollowing = followingStates.filter(data => data.following).map(data => data.songId);
+            sessionStorage.setItem(storageKey, JSON.stringify(initiallyFollowing));
+            let isFollowingAll = initiallyFollowing.length === followingStates.length;
+
+            items.push({
+                id: "genius-album-follow-item-old",
+                label: isFollowingAll ? 'Following' : 'Follow',
+                onClick: async (btn) => {
+                    btn.disabled = true;
+                    const storedState = JSON.parse(sessionStorage.getItem(storageKey)) || [];
+                    if (btn.textContent === 'Follow') {
+                        btn.textContent = 'Following…';
+                        const newFollows = followingStates.filter(data => !storedState.includes(data.songId));
+                        await Promise.all(newFollows.map(data => toggleFollowSong(data.songId, 'follow')));
+                        storedState.push(...newFollows.map(data => data.songId));
+                        sessionStorage.setItem(storageKey, JSON.stringify(storedState));
+                        btn.textContent = 'Following';
+                    } else {
+                        btn.textContent = 'Unfollowing…';
+                        await Promise.all(followingStates.map(data => toggleFollowSong(data.songId, 'unfollow')));
+                        sessionStorage.setItem(storageKey, JSON.stringify([]));
+                        btn.textContent = 'Follow';
+                    }
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        if (!items.length) return;
+
+        const dropdown = createAlbumActionsDropdown({
+            container: albumAdminMenu.parentNode,
+            smallButtonClass: null,
+            isOldUi: true,
+            items
+        });
+
+        if (dropdown && albumAdminMenu.parentNode) {
+            albumAdminMenu.parentNode.insertBefore(dropdown, albumAdminMenu);
+        }
     }
 
     function bulkAddSongsButton(albumId) {
@@ -2728,19 +3010,11 @@ chrome.storage.local.get([
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     function songCreditsButtonAlbumPageOld(songData) {
+        openSongCreditsOldModal(songData);
+    }
+
+    async function openSongCreditsOldModal(songData) {
         console.log(songData);
-        const albumAdminMenu = document.querySelector('album-admin-menu');
-
-        if (!albumAdminMenu) return;
-        const SongCreditsButton = document.createElement('button');
-        SongCreditsButton.className = 'square_button u-bottom_margin';
-        SongCreditsButton.textContent = 'Song Credits';
-        SongCreditsButton.setAttribute('ng-click', "$ctrl.songCredits()");
-        SongCreditsButton.setAttribute('ng-if', "$ctrl.has_permission('songCredits')");
-        SongCreditsButton.setAttribute('bis_skin_checked', '1');
-        SongCreditsButton.style.marginRight = "0.25rem";
-
-        albumAdminMenu.parentNode.insertBefore(SongCreditsButton, albumAdminMenu);
 
         let songIds = [];
         let csrfToken = '';
@@ -2750,8 +3024,6 @@ chrome.storage.local.get([
 
         songIds = songData.map(data => data.response.song.id);
         csrfToken = getCsrfToken();
-        ({ rawTrackNumbers, trackNumbers } = extractTrackNumbers());
-
 
         function extractTrackNumbers() {
             const trackContainers = document.querySelectorAll('.chart_row-number_container.chart_row-number_container--align_left');
@@ -2773,50 +3045,45 @@ chrome.storage.local.get([
             return { rawTrackNumbers, trackNumbers };
         }
 
+        ({ rawTrackNumbers, trackNumbers } = extractTrackNumbers());
 
-        SongCreditsButton.addEventListener('click', async () => {
-            openOverlay(trackNumbers, rawTrackNumbers);
+        openOverlay(trackNumbers, rawTrackNumbers);
 
-            const responses = await Promise.all(
-                songIds.map(songId =>
-                    geniusFetch(`https://genius.com/api/songs/${songId}`)
-                        .then(res => res.json())
-                )
-            );
-            existingSongsData = songIds.map((songId, index) => {
-                const songDetails = responses[index]?.response?.song;
-
-
-                //existingSongsData = songIds.map(songId => {
-                //   const songDetails = songData.find(({ response }) => response?.song?.id === songId)?.response?.song;
-                return songDetails ? {
-                    id: songId,
-                    existingPrimaryArtists: songDetails.primary_artists || [],
-                    existingPrimaryTag: songDetails.primary_tag || null,
-                    existingFeaturedArtists: songDetails.featured_artists || [],
-                    existingTags: songDetails.tags || [],
-                    existingReleaseDate: songDetails.release_date_components || null,
-                    existingYoutubeLink: songDetails.youtube_url || null,
-                    existingSoundcloudLink: songDetails.soundcloud_url || null,
-                    existingWriters: songDetails.writer_artists || [],
-                    existingProducers: songDetails.producer_artists || [],
-                    existingRecorded: songDetails.recording_location || [],
-                    existingGradient: {
-                        primary: songDetails.song_art_primary_color,
-                        secondary: songDetails.song_art_secondary_color,
-                        text: songDetails.song_art_text_color
-                    } || null,
-                    existingSongCover: songDetails.custom_song_art_image_url || null,
-                    existingCustomPerformances: songDetails.custom_performances || [],
-                    existingSongRelationships: songDetails.song_relationships || [],
-                } : null;
-            });
-
-            console.log('Existing Song Data:', existingSongsData);
-
-            const saveButton = document.getElementById('custom-save-button');
-            saveButton.style.display = 'inline-block';
+        const responses = await Promise.all(
+            songIds.map(songId =>
+                geniusFetch(`https://genius.com/api/songs/${songId}`)
+                    .then(res => res.json())
+            )
+        );
+        existingSongsData = songIds.map((songId, index) => {
+            const songDetails = responses[index]?.response?.song;
+            return songDetails ? {
+                id: songId,
+                existingPrimaryArtists: songDetails.primary_artists || [],
+                existingPrimaryTag: songDetails.primary_tag || null,
+                existingFeaturedArtists: songDetails.featured_artists || [],
+                existingTags: songDetails.tags || [],
+                existingReleaseDate: songDetails.release_date_components || null,
+                existingYoutubeLink: songDetails.youtube_url || null,
+                existingSoundcloudLink: songDetails.soundcloud_url || null,
+                existingWriters: songDetails.writer_artists || [],
+                existingProducers: songDetails.producer_artists || [],
+                existingRecorded: songDetails.recording_location || [],
+                existingGradient: {
+                    primary: songDetails.song_art_primary_color,
+                    secondary: songDetails.song_art_secondary_color,
+                    text: songDetails.song_art_text_color
+                } || null,
+                existingSongCover: songDetails.custom_song_art_image_url || null,
+                existingCustomPerformances: songDetails.custom_performances || [],
+                existingSongRelationships: songDetails.song_relationships || [],
+            } : null;
         });
+
+        console.log('Existing Song Data:', existingSongsData);
+
+        const saveButton = document.getElementById('custom-save-button');
+        if (saveButton) saveButton.style.display = 'inline-block';
 
 
         function openOverlay(trackNumbers, rawTrackNumbers) {
@@ -5139,14 +5406,12 @@ chrome.storage.local.get([
     }
 
     function songCreditsButtonAlbumPage(songIds) {
-        console.log("Run function songCreditsButtonAlbumPage()");
+        openSongCreditsModal(songIds);
+    }
+
+    function openSongCreditsModal(songIds) {
+        console.log("Run function openSongCreditsModal()");
         const DELAY_BEFORE_REOPEN = 150; // ? milliseconds
-
-        const { stickyToolbarLeft, smallButton } = getDomElements();
-        if (!stickyToolbarLeft || !smallButton) return;
-
-        const existingButton = [...stickyToolbarLeft.querySelectorAll("button")].find(btn => ["Song Credits"].includes(btn.textContent.trim()));
-        if (existingButton) existingButton.remove();
 
         function extractTrackNumbers() {
             const trackContainers = document.querySelectorAll('a[class^="Track__Container-"]');
