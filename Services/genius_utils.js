@@ -347,24 +347,71 @@ async function awardTranscriptionIq(songId) {
 }
 
 async function updateSongLyrics(song, payload) {
-    if (Object.keys(payload).length === 0) return;
+    if (!song || !payload || Object.keys(payload).length === 0) return { ok: false, error: 'Invalid parameters' };
+    const songId = typeof song === 'object' ? song.id : song;
+    if (!songId) return { ok: false, error: 'Missing song ID' };
+
     try {
-        const response = await geniusFetch(`https://genius.com/api/songs/${song.id}/lyrics`, {
+        const csrfToken = await ensureCsrfToken();
+        const response = await geniusFetch(`https://genius.com/api/songs/${songId}/lyrics`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
                 'Cookie': document.cookie,
-                'X-CSRF-Token': getCsrfToken(),
+                'X-CSRF-Token': csrfToken,
                 'User-Agent': 'ArtworkExtractorForGenius/0.7.9 (Artwork Extractor for Genius)'
             },
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-            console.error(`Error updating song lyrics: ${response.statusText}`);
+            let errText = response.statusText;
+            try {
+                const errJson = await response.json();
+                if (errJson?.meta?.message) errText = `${response.status} ${errJson.meta.message}`;
+                else if (errJson?.error) errText = `${response.status} ${errJson.error}`;
+            } catch (e) {}
+            console.error(`Error updating song lyrics for song ${songId}: ${errText}`);
+            return { ok: false, status: response.status, statusText: errText };
         }
+        const json = await response.json();
+        return { ok: true, data: json };
     } catch (error) {
-        console.error(`Error: ${error}`);
+        console.error(`Error updating song lyrics for song ${songId}:`, error);
+        return { ok: false, error: error.message };
+    }
+}
+
+async function markLyricsComplete(songId) {
+    if (!songId) return { ok: false, error: 'Missing song ID' };
+    try {
+        const csrfToken = await ensureCsrfToken();
+        const response = await geniusFetch(`https://genius.com/api/songs/${songId}/mark_lyrics_evaluation_as_complete`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cookie': document.cookie,
+                'X-CSRF-Token': csrfToken,
+                'User-Agent': 'ArtworkExtractorForGenius/0.7.9 (Artwork Extractor for Genius)'
+            },
+            body: JSON.stringify({ text_format: 'html,markdown,preview' })
+        });
+
+        if (!response.ok) {
+            let errText = response.statusText;
+            try {
+                const errJson = await response.json();
+                if (errJson?.meta?.message) errText = `${response.status} ${errJson.meta.message}`;
+                else if (errJson?.error) errText = `${response.status} ${errJson.error}`;
+            } catch (e) {}
+            console.error(`Error marking lyrics evaluation as complete for song ${songId}: ${errText}`);
+            return { ok: false, status: response.status, statusText: errText };
+        }
+        const json = await response.json();
+        return { ok: true, data: json };
+    } catch (error) {
+        console.error(`Error marking lyrics evaluation as complete for song ${songId}:`, error);
+        return { ok: false, error: error.message };
     }
 }
 

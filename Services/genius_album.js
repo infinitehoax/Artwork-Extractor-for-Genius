@@ -15,6 +15,7 @@ chrome.storage.local.get([
     'isGeniusAlbumSongCreditsAutoReopen',
     'isGeniusAlbumFollowButton',
     'isGeniusAlbumCleanupButton',
+    'isGeniusAlbumBulkInstrumental',
     'functionOrder'
 ], function (result) {
     const isGeniusAlbumAlbumPage = result.isGeniusAlbumAlbumPage ?? true;
@@ -29,6 +30,7 @@ chrome.storage.local.get([
     const isGeniusAlbumSongCreditsButton = result.isGeniusAlbumSongCreditsButton ?? true;
     const isGeniusAlbumFollowButton = result.isGeniusAlbumFollowButton ?? true;
     const isGeniusAlbumCleanupButton = result.isGeniusAlbumCleanupButton ?? true;
+    const isGeniusAlbumBulkInstrumental = result.isGeniusAlbumBulkInstrumental ?? true;
 
     // ? Live state of the "Auto-Reopen" toggle inside the song credits editor.
     // * Initialized from the settings page value and kept in sync with it, so toggling it in the editor sticks.
@@ -183,6 +185,9 @@ chrome.storage.local.get([
                 bulkAddSongsButton(albumId);
             }
 
+            if (isGeniusAlbumBulkInstrumental) {
+                bulkInstrumentalButton(albumId);
+            }
 
             if (isGeniusAlbumSongCreditsButton) songCreditsButtonAlbumPage(songIds);
             //if (isGeniusAlbumCleanupButton) cleanupAlbumType(albumData);
@@ -247,6 +252,7 @@ chrome.storage.local.get([
 
             getSongData(document.documentElement.innerHTML).then(json => {
                 if (isGeniusAlbumSongCreditsButton) songCreditsButtonAlbumPageOld(json);
+                if (isGeniusAlbumBulkInstrumental) bulkInstrumentalButtonOld();
                 if (isGeniusAlbumFollowButton) followButtonAlbumPageOld(json);
                 if (isGeniusAlbumCleanupButton) cleanupMetadataOld(userId, userRoles, json);
                 if (isGeniusAlbumAlbumPageLyrics) lyricStateTracklistOld(userRoles, json);
@@ -1093,6 +1099,681 @@ chrome.storage.local.get([
         stickyToolbarLeft.appendChild(bulkButton);
 
         bulkButton.addEventListener("click", () => openBulkAddModal(albumId));
+    }
+
+    function bulkInstrumentalButton(albumId) {
+        console.log("Run function bulkInstrumentalButton()");
+
+        const { stickyToolbarLeft, smallButton } = getDomElements();
+        if (!stickyToolbarLeft || !smallButton) return;
+
+        const existingButton = [...stickyToolbarLeft.querySelectorAll("button")].find(btn => btn.textContent.trim() === "Bulk Instrumental");
+        if (existingButton) existingButton.remove();
+
+        const bulkButton = document.createElement("button");
+        bulkButton.type = "button";
+        bulkButton.className = smallButton.className;
+        bulkButton.textContent = "Bulk Instrumental";
+        stickyToolbarLeft.appendChild(bulkButton);
+
+        bulkButton.addEventListener("click", () => openBulkInstrumentalModal(albumId));
+    }
+
+    function bulkInstrumentalButtonOld() {
+        console.log("Run function bulkInstrumentalButtonOld()");
+        const albumAdminMenu = document.querySelector('album-admin-menu');
+        if (!albumAdminMenu) return;
+
+        const existingButton = document.querySelector('button.square_button.u-bottom_margin[data-btn="bulk-instrumental"]');
+        if (existingButton) existingButton.remove();
+
+        const bulkButton = document.createElement('button');
+        bulkButton.className = 'square_button u-bottom_margin';
+        bulkButton.dataset.btn = "bulk-instrumental";
+        bulkButton.textContent = 'Bulk Instrumental';
+        bulkButton.style.marginRight = "0.25rem";
+
+        bulkButton.addEventListener("click", () => {
+            const albumId = getId("album") || document.querySelector("meta[content*='Album ID']")?.content.match(/"Album ID","value":(\d+)/)?.[1];
+            openBulkInstrumentalModal(albumId);
+        });
+
+        albumAdminMenu.parentNode.insertBefore(bulkButton, albumAdminMenu);
+    }
+
+    async function fetchAlbumTrackAppearances(albumId) {
+        try {
+            const { album: freshAlbumData } = await getApiData(albumId, "albums");
+            if (freshAlbumData && Array.isArray(freshAlbumData.album_appearances) && freshAlbumData.album_appearances.length > 0) {
+                return freshAlbumData.album_appearances;
+            }
+            const res = await geniusFetch(`https://genius.com/api/albums/${albumId}/appearances?unpaginated=true&include_tags=true&include_custom_performances=true`);
+            if (res.ok) {
+                const json = await res.json();
+                if (json && json.response && Array.isArray(json.response.album_appearances)) {
+                    return json.response.album_appearances;
+                }
+            }
+        } catch (err) {
+            console.warn("Error fetching album appearances:", err);
+        }
+        return [];
+    }
+
+    function openBulkInstrumentalModal(albumId) {
+        const currentAlbumId = albumId || getId("album");
+        if (!currentAlbumId) {
+            alert("Album ID not found.");
+            return;
+        }
+
+        if (document.getElementById("genius-bulk-instrumental-modal-overlay")) return;
+
+        document.body.style.overflow = "hidden";
+
+        const overlay = document.createElement("div");
+        overlay.id = "genius-bulk-instrumental-modal-overlay";
+        Object.assign(overlay.style, {
+            position: "fixed",
+            inset: "0",
+            backgroundColor: "rgba(0, 0, 0, 0.75)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: "100000"
+        });
+
+        const modal = document.createElement("div");
+        Object.assign(modal.style, {
+            backgroundColor: "#fff",
+            width: "85%",
+            maxWidth: "850px",
+            maxHeight: "92vh",
+            padding: "1.5rem",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+            borderRadius: "6px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.4)",
+            fontFamily: `Programme, "Programme Pan", Arial, sans-serif`,
+            color: "#000",
+            overflowY: "auto"
+        });
+
+        const titleRow = document.createElement("div");
+        Object.assign(titleRow.style, {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
+        });
+
+        const titleHeader = document.createElement("div");
+        titleHeader.textContent = "Bulk Instrumental / Lyrics Mass Editor";
+        Object.assign(titleHeader.style, {
+            fontSize: "1.25rem",
+            fontWeight: "bold",
+            color: "#000"
+        });
+
+        const closeXBtn = document.createElement("button");
+        closeXBtn.type = "button";
+        closeXBtn.textContent = "✕";
+        Object.assign(closeXBtn.style, {
+            background: "none",
+            border: "none",
+            fontSize: "1.5rem",
+            cursor: "pointer",
+            color: "#666",
+            padding: "0 0.5rem"
+        });
+
+        titleRow.appendChild(titleHeader);
+        titleRow.appendChild(closeXBtn);
+
+        const description = document.createElement("div");
+        description.textContent = "Select tracks from this album to update lyrics (e.g. [Instrumental]) and mark them as complete on Genius.";
+        Object.assign(description.style, {
+            fontSize: "0.85rem",
+            color: "#555"
+        });
+
+        // Config section
+        const configBox = document.createElement("div");
+        Object.assign(configBox.style, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem",
+            backgroundColor: "#f9f9f9",
+            padding: "0.85rem",
+            borderRadius: "4px",
+            border: "1px solid #e0e0e0"
+        });
+
+        const lyricsRow = document.createElement("div");
+        Object.assign(lyricsRow.style, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.35rem"
+        });
+
+        const lyricsLabel = document.createElement("label");
+        lyricsLabel.textContent = "Lyrics Body HTML / Text:";
+        Object.assign(lyricsLabel.style, {
+            fontSize: "0.85rem",
+            fontWeight: "bold"
+        });
+
+        const lyricsInput = document.createElement("input");
+        lyricsInput.type = "text";
+        lyricsInput.value = "[Instrumental]";
+        Object.assign(lyricsInput.style, {
+            padding: "0.5rem",
+            fontSize: "0.9rem",
+            fontFamily: "Programme, Arial, sans-serif",
+            border: "1px solid #ccc",
+            borderRadius: "4px"
+        });
+
+        const presetsRow = document.createElement("div");
+        Object.assign(presetsRow.style, {
+            display: "flex",
+            gap: "0.5rem",
+            flexWrap: "wrap",
+            alignItems: "center"
+        });
+
+        const presetsLabel = document.createElement("span");
+        presetsLabel.textContent = "Quick Presets:";
+        presetsLabel.style.fontSize = "0.75rem";
+        presetsLabel.style.color = "#666";
+        presetsRow.appendChild(presetsLabel);
+
+        ["[Instrumental]", "[Non-Music]", "[Spoken Word]", "[Instrumental Intro]"].forEach(text => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = text;
+            Object.assign(btn.style, {
+                padding: "0.2rem 0.5rem",
+                fontSize: "0.75rem",
+                border: "1px solid #ccc",
+                borderRadius: "3px",
+                backgroundColor: "#fff",
+                cursor: "pointer"
+            });
+            btn.addEventListener("click", () => {
+                lyricsInput.value = text;
+            });
+            presetsRow.appendChild(btn);
+        });
+
+        lyricsRow.appendChild(lyricsLabel);
+        lyricsRow.appendChild(lyricsInput);
+        lyricsRow.appendChild(presetsRow);
+
+        const markCompleteRow = document.createElement("label");
+        Object.assign(markCompleteRow.style, {
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.85rem",
+            cursor: "pointer",
+            fontWeight: "bold"
+        });
+
+        const markCompleteCheckbox = document.createElement("input");
+        markCompleteCheckbox.type = "checkbox";
+        markCompleteCheckbox.checked = true;
+
+        markCompleteRow.appendChild(markCompleteCheckbox);
+        markCompleteRow.appendChild(document.createTextNode("Mark lyrics complete (Admin action) after saving"));
+
+        configBox.appendChild(lyricsRow);
+        configBox.appendChild(markCompleteRow);
+
+        // Selection buttons
+        const selectionToolbar = document.createElement("div");
+        Object.assign(selectionToolbar.style, {
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "space-between"
+        });
+
+        const selectionLeft = document.createElement("div");
+        Object.assign(selectionLeft.style, {
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "center"
+        });
+
+        const selectAllBtn = document.createElement("button");
+        selectAllBtn.type = "button";
+        selectAllBtn.textContent = "Select All";
+        styleSmallToolBtn(selectAllBtn);
+
+        const deselectAllBtn = document.createElement("button");
+        deselectAllBtn.type = "button";
+        deselectAllBtn.textContent = "Deselect All";
+        styleSmallToolBtn(deselectAllBtn);
+
+        const selectIncompleteBtn = document.createElement("button");
+        selectIncompleteBtn.type = "button";
+        selectIncompleteBtn.textContent = "Select Incomplete Only";
+        styleSmallToolBtn(selectIncompleteBtn);
+
+        selectionLeft.appendChild(selectAllBtn);
+        selectionLeft.appendChild(deselectAllBtn);
+        selectionLeft.appendChild(selectIncompleteBtn);
+
+        const selectedCountLabel = document.createElement("span");
+        selectedCountLabel.textContent = "0 tracks selected";
+        Object.assign(selectedCountLabel.style, {
+            fontSize: "0.85rem",
+            fontWeight: "bold",
+            color: "#333"
+        });
+
+        selectionToolbar.appendChild(selectionLeft);
+        selectionToolbar.appendChild(selectedCountLabel);
+
+        // Tracklist scrollable list
+        const tracklistContainer = document.createElement("div");
+        Object.assign(tracklistContainer.style, {
+            maxHeight: "220px",
+            overflowY: "auto",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "0.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.35rem",
+            backgroundColor: "#fff"
+        });
+
+        const loadingMsg = document.createElement("div");
+        loadingMsg.textContent = "Loading album tracks...";
+        loadingMsg.style.fontSize = "0.85rem";
+        loadingMsg.style.color = "#666";
+        tracklistContainer.appendChild(loadingMsg);
+
+        function styleSmallToolBtn(btn) {
+            Object.assign(btn.style, {
+                padding: "0.25rem 0.6rem",
+                border: "1px solid #000",
+                borderRadius: "1rem",
+                backgroundColor: "#fff",
+                fontSize: "0.75rem",
+                cursor: "pointer",
+                fontWeight: "bold"
+            });
+        }
+
+        // Stats bar
+        const statsBar = document.createElement("div");
+        Object.assign(statsBar.style, {
+            display: "flex",
+            gap: "1.25rem",
+            background: "#f3f4f6",
+            padding: "0.6rem 1rem",
+            borderRadius: "4px",
+            fontSize: "0.85rem",
+            fontWeight: "bold"
+        });
+
+        const statTotal = document.createElement("span");
+        statTotal.innerHTML = 'Total Selected: <span id="instModalTotal">0</span>';
+
+        const statUpdated = document.createElement("span");
+        statUpdated.style.color = "#16a34a";
+        statUpdated.innerHTML = 'Updated: <span id="instModalUpdated">0</span>';
+
+        const statCompleted = document.createElement("span");
+        statCompleted.style.color = "#2563eb";
+        statCompleted.innerHTML = 'Completed: <span id="instModalCompleted">0</span>';
+
+        const statFailed = document.createElement("span");
+        statFailed.style.color = "#dc2626";
+        statFailed.innerHTML = 'Failed: <span id="instModalFailed">0</span>';
+
+        statsBar.appendChild(statTotal);
+        statsBar.appendChild(statUpdated);
+        statsBar.appendChild(statCompleted);
+        statsBar.appendChild(statFailed);
+
+        // Controls row
+        const controlsRow = document.createElement("div");
+        Object.assign(controlsRow.style, {
+            display: "flex",
+            gap: "0.75rem",
+            alignItems: "center"
+        });
+
+        const startBtn = document.createElement("button");
+        startBtn.type = "button";
+        startBtn.textContent = "Start Mass Edit";
+        Object.assign(startBtn.style, {
+            padding: "0.5rem 1.25rem",
+            backgroundColor: "#24c609",
+            color: "#fff",
+            border: "1px solid #000",
+            borderRadius: "1.25rem",
+            fontWeight: "bold",
+            fontSize: "0.85rem",
+            cursor: "pointer"
+        });
+
+        const pauseBtn = document.createElement("button");
+        pauseBtn.type = "button";
+        pauseBtn.textContent = "Pause";
+        pauseBtn.disabled = true;
+        Object.assign(pauseBtn.style, {
+            padding: "0.5rem 1rem",
+            backgroundColor: "#e5e7eb",
+            color: "#374151",
+            border: "1px solid #ccc",
+            borderRadius: "1.25rem",
+            fontSize: "0.85rem",
+            cursor: "pointer"
+        });
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.textContent = "Close";
+        Object.assign(cancelBtn.style, {
+            padding: "0.5rem 1rem",
+            backgroundColor: "#fff",
+            color: "#000",
+            border: "1px solid #ccc",
+            borderRadius: "1.25rem",
+            fontSize: "0.85rem",
+            cursor: "pointer",
+            marginLeft: "auto"
+        });
+
+        controlsRow.appendChild(startBtn);
+        controlsRow.appendChild(pauseBtn);
+        controlsRow.appendChild(cancelBtn);
+
+        // Log box
+        const logBox = document.createElement("div");
+        Object.assign(logBox.style, {
+            height: "150px",
+            backgroundColor: "#111827",
+            color: "#f3f4f6",
+            padding: "0.75rem",
+            fontFamily: "monospace",
+            fontSize: "0.78rem",
+            borderRadius: "4px",
+            overflowY: "auto",
+            lineHeight: "1.4"
+        });
+
+        function logMessage(msg, color = "#eee") {
+            const line = document.createElement("div");
+            line.style.color = color;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logBox.appendChild(line);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        let isProcessing = false;
+        let isPaused = false;
+        let stopRequested = false;
+
+        function closeModal() {
+            stopRequested = true;
+            isProcessing = false;
+            document.body.style.overflow = "";
+            overlay.remove();
+        }
+
+        closeXBtn.addEventListener("click", closeModal);
+        cancelBtn.addEventListener("click", closeModal);
+
+        pauseBtn.addEventListener("click", () => {
+            if (!isProcessing) return;
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? "Resume" : "Pause";
+            logMessage(isPaused ? "Paused processing." : "Resumed processing...", "#f59e0b");
+        });
+
+        modal.appendChild(titleRow);
+        modal.appendChild(description);
+        modal.appendChild(configBox);
+        modal.appendChild(selectionToolbar);
+        modal.appendChild(tracklistContainer);
+        modal.appendChild(statsBar);
+        modal.appendChild(controlsRow);
+        modal.appendChild(logBox);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        let trackItems = [];
+
+        function updateSelectionCount() {
+            const checked = trackItems.filter(item => item.checkbox.checked);
+            selectedCountLabel.textContent = `${checked.length} of ${trackItems.length} tracks selected`;
+        }
+
+        selectAllBtn.addEventListener("click", () => {
+            trackItems.forEach(item => item.checkbox.checked = true);
+            updateSelectionCount();
+        });
+
+        deselectAllBtn.addEventListener("click", () => {
+            trackItems.forEach(item => item.checkbox.checked = false);
+            updateSelectionCount();
+        });
+
+        selectIncompleteBtn.addEventListener("click", () => {
+            trackItems.forEach(item => {
+                const isComplete = item.song?.lyrics_state === "complete";
+                item.checkbox.checked = !isComplete;
+            });
+            updateSelectionCount();
+        });
+
+        // Load appearances and build tracklist UI
+        fetchAlbumTrackAppearances(currentAlbumId).then(appearances => {
+            tracklistContainer.innerHTML = "";
+            if (!appearances || !appearances.length) {
+                tracklistContainer.textContent = "No tracks found for this album.";
+                return;
+            }
+
+            appearances.sort((a, b) => (a.disc_track_number || a.track_number || 0) - (b.disc_track_number || b.track_number || 0));
+
+            appearances.forEach((app, idx) => {
+                const song = app.song || {};
+                const trackNum = app.disc_track_number || app.track_number || (idx + 1);
+                const songTitle = song.title || `Track ${trackNum}`;
+
+                const row = document.createElement("label");
+                Object.assign(row.style, {
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    padding: "0.25rem 0.5rem",
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    borderRadius: "3px"
+                });
+
+                row.addEventListener("mouseenter", () => row.style.backgroundColor = "#f3f4f6");
+                row.addEventListener("mouseleave", () => row.style.backgroundColor = "transparent");
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = true;
+                checkbox.addEventListener("change", updateSelectionCount);
+
+                const numSpan = document.createElement("span");
+                numSpan.textContent = `${trackNum}.`;
+                numSpan.style.width = "2rem";
+                numSpan.style.color = "#777";
+
+                const titleSpan = document.createElement("span");
+                titleSpan.textContent = songTitle;
+                titleSpan.style.fontWeight = "bold";
+                titleSpan.style.flex = "1";
+
+                const statusBadge = document.createElement("span");
+                statusBadge.style.fontSize = "0.75rem";
+                statusBadge.style.padding = "0.15rem 0.4rem";
+                statusBadge.style.borderRadius = "3px";
+
+                if (song.lyrics_state === "complete") {
+                    statusBadge.textContent = "Complete";
+                    statusBadge.style.backgroundColor = "#d1fae5";
+                    statusBadge.style.color = "#065f46";
+                } else {
+                    statusBadge.textContent = "Incomplete";
+                    statusBadge.style.backgroundColor = "#fef3c7";
+                    statusBadge.style.color = "#92400e";
+                }
+
+                row.appendChild(checkbox);
+                row.appendChild(numSpan);
+                row.appendChild(titleSpan);
+                row.appendChild(statusBadge);
+
+                tracklistContainer.appendChild(row);
+                trackItems.push({ checkbox, song, trackNum, title: songTitle });
+            });
+
+            updateSelectionCount();
+            logMessage(`Loaded ${appearances.length} tracks for album #${currentAlbumId}.`, "#99f2a5");
+        }).catch(err => {
+            tracklistContainer.textContent = `Error loading tracks: ${err.message}`;
+            logMessage(`Error loading tracks: ${err.message}`, "#ef4444");
+        });
+
+        // Start Mass Edit execution loop
+        startBtn.addEventListener("click", async () => {
+            if (isProcessing) return;
+
+            const selectedTracks = trackItems.filter(item => item.checkbox.checked);
+            if (!selectedTracks.length) {
+                logMessage("Please select at least one track to process.", "#ef4444");
+                return;
+            }
+
+            const lyricsBodyHtml = lyricsInput.value.trim();
+            if (!lyricsBodyHtml) {
+                logMessage("Lyrics text cannot be empty.", "#ef4444");
+                return;
+            }
+
+            const shouldMarkComplete = markCompleteCheckbox.checked;
+
+            isProcessing = true;
+            isPaused = false;
+            stopRequested = false;
+
+            startBtn.disabled = true;
+            lyricsInput.disabled = true;
+            markCompleteCheckbox.disabled = true;
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = "Pause";
+
+            let total = selectedTracks.length;
+            let updated = 0, completed = 0, failed = 0;
+
+            const totalEl = modal.querySelector("#instModalTotal");
+            const updatedEl = modal.querySelector("#instModalUpdated");
+            const completedEl = modal.querySelector("#instModalCompleted");
+            const failedEl = modal.querySelector("#instModalFailed");
+
+            if (totalEl) totalEl.textContent = total;
+            if (updatedEl) updatedEl.textContent = updated;
+            if (completedEl) completedEl.textContent = completed;
+            if (failedEl) failedEl.textContent = failed;
+
+            logMessage(`Starting mass edit for ${total} selected track(s)...`, "#ffff64");
+
+            for (let i = 0; i < total; i++) {
+                if (stopRequested) break;
+
+                while (isPaused && !stopRequested) {
+                    await new Promise(r => setTimeout(r, 200));
+                }
+                if (stopRequested) break;
+
+                const track = selectedTracks[i];
+                const songId = track.song.id;
+                const trackTitle = `${track.trackNum}. ${track.title} (#${songId})`;
+
+                logMessage(`Processing (${i + 1}/${total}): ${trackTitle}...`, "#aaa");
+
+                try {
+                    // STEP A: Update lyrics
+                    const lyricsPayload = {
+                        text_format: "html,markdown,preview",
+                        react: true,
+                        auto_resync: false,
+                        lyrics: {
+                            body: {
+                                html: lyricsBodyHtml
+                            }
+                        },
+                        client_timestamps: {
+                            updated_by_human_at: Math.floor(Date.now() / 1000),
+                            lyrics_updated_at: null
+                        }
+                    };
+
+                    const updateRes = await updateSongLyrics(songId, lyricsPayload);
+                    if (!updateRes || !updateRes.ok) {
+                        failed++;
+                        if (failedEl) failedEl.textContent = failed;
+                        logMessage(`FAILED lyrics update for ${trackTitle}: ${updateRes?.statusText || updateRes?.error || "Unknown error"}`, "#ef4444");
+                        continue;
+                    }
+
+                    updated++;
+                    if (updatedEl) updatedEl.textContent = updated;
+                    logMessage(`Updated lyrics for ${trackTitle}`, "#16a34a");
+
+                    // STEP B: Mark complete if checked
+                    if (shouldMarkComplete) {
+                        const completeRes = await markLyricsComplete(songId);
+                        if (completeRes && completeRes.ok) {
+                            completed++;
+                            if (completedEl) completedEl.textContent = completed;
+                            logMessage(`Marked lyrics complete for ${trackTitle}`, "#2563eb");
+                        } else {
+                            logMessage(`Warning: Lyrics saved but mark complete failed for ${trackTitle}: ${completeRes?.statusText || completeRes?.error || "Unknown error"}`, "#f59e0b");
+                        }
+                    }
+
+                    // Rate-limiting delay with jitter (2.5s - 5s)
+                    if (i < total - 1) {
+                        const jitter = Math.floor(Math.random() * (5000 - 2500 + 1) + 2500);
+                        logMessage(`Waiting ${ (jitter / 1000).toFixed(1) }s before next track...`, "#777");
+                        await new Promise(r => setTimeout(r, jitter));
+                    }
+
+                } catch (err) {
+                    failed++;
+                    if (failedEl) failedEl.textContent = failed;
+                    logMessage(`Error processing ${trackTitle}: ${err.message}`, "#ef4444");
+                }
+            }
+
+            isProcessing = false;
+            startBtn.disabled = false;
+            lyricsInput.disabled = false;
+            markCompleteCheckbox.disabled = false;
+            pauseBtn.disabled = true;
+            pauseBtn.textContent = "Pause";
+
+            if (!stopRequested) {
+                logMessage(`Mass edit finished! Total: ${total}, Updated: ${updated}, Completed: ${completed}, Failed: ${failed}`, "#ffff64");
+            }
+        });
     }
 
     function openBulkAddModal(albumId) {
