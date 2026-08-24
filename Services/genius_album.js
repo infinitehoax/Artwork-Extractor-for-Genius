@@ -5405,10 +5405,6 @@ chrome.storage.local.get([
         }
     }
 
-    function songCreditsButtonAlbumPage(songIds) {
-        openSongCreditsModal(songIds);
-    }
-
     function openSongCreditsModal(songIds) {
         console.log("Run function openSongCreditsModal()");
         const DELAY_BEFORE_REOPEN = 150; // ? milliseconds
@@ -5438,12 +5434,6 @@ chrome.storage.local.get([
 
             return { rawTrackNumbers, trackNumbers };
         }
-
-        const creditsButton = document.createElement("button");
-        creditsButton.type = "button";
-        creditsButton.className = smallButton.className;
-        creditsButton.textContent = "Song Credits";
-        stickyToolbarLeft.appendChild(creditsButton);
 
         let creditsState = {};
 
@@ -6266,7 +6256,7 @@ chrome.storage.local.get([
             });
         }
 
-        creditsButton.addEventListener("click", openCreditsEditor);
+        openCreditsEditor();
 
         function createModal(songIds, rawTrackNumbers, trackNumbers, creditsState, optionSets) {
             function createForm() {
