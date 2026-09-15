@@ -1,10 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Artwork Extractor for Genius",
-  "version": "0.7.9",
+  "version": "0.8.0",
   "description": "Copy the artwork URL to the clipboard for genius.com by clicking the copy button on Apple Music, Deezer, Spotify, and more.",
   "permissions": [
-    "activeTab",
     "clipboardWrite",
     "storage",
     "scripting"
@@ -136,6 +135,11 @@
   ],
   "icons": {
     "128": "128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "strict_min_version": "127.0"
+    }
   },
   "action": {
     "default_popup": "Popup/popup.html",
