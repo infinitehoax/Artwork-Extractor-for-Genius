@@ -472,6 +472,7 @@ chrome.storage.local.get([
 
     function buildSongJsonPayload(songData) {
         return {
+            title: songData.title || "",
             primary_tag_id: songData.primary_tag ? songData.primary_tag.id : null,
             featured_artists: (songData.featured_artists || []).map(a => ({
                 id: a.id,
@@ -585,6 +586,10 @@ chrome.storage.local.get([
 
     async function processAndResolveSongPayload(payload) {
         const processed = { ...payload };
+
+        if (processed.title !== undefined && processed.title !== null) {
+            processed.title = String(processed.title).trim();
+        }
 
         if (processed.youtube_url) {
             processed.youtube_url = cleanYouTubeUrl(processed.youtube_url);
