@@ -5673,6 +5673,7 @@ chrome.storage.local.get([
                     const songRecordedAt = trackCredits.recordingLocation !== undefined ? trackCredits.recordingLocation : recordedPayload;
                     const songLanguage = trackCredits.language !== undefined ? trackCredits.language : languagePayload;
                     const songYoutubeStart = trackCredits.youtubeStart !== undefined ? trackCredits.youtubeStart : undefined;
+                    const songTitle = trackCredits.title !== undefined ? trackCredits.title : undefined;
 
                     const payload = await processMainPayload(
                         songId,
@@ -5692,7 +5693,8 @@ chrome.storage.local.get([
                         songRelationshipsPayload[i],
                         songLanguage,
                         songSoundcloudUrl,
-                        songYoutubeStart
+                        songYoutubeStart,
+                        songTitle
                     );
 
                     if (!mainPayload[songId]) mainPayload[songId] = [];
@@ -5854,7 +5856,8 @@ chrome.storage.local.get([
                     songRelationshipPayload,
                     languagePayload,
                     soundcloudPayload,
-                    youtubeStartPayload
+                    youtubeStartPayload,
+                    titlePayload
                 ) {
 
                     let existingId = existingSongData.id;
@@ -5880,6 +5883,10 @@ chrome.storage.local.get([
                         text_format: "html,markdown",
                         song: {}
                     };
+
+                    if (titlePayload !== undefined && titlePayload !== null) {
+                        payload.song.title = titlePayload;
+                    }
 
 
                     if (primaryArtistsPayload.length != 0 || checkboxStates.overwritePrimaryArtists || checkboxStates.removePrimaryArtists) {
@@ -8829,6 +8836,11 @@ chrome.storage.local.get([
                             creditsState.trackCreditsMap[targetSongId].recordingLocation = String(trackRecordedSource);
                         }
 
+                        let trackTitleSource = trackData.title !== undefined ? trackData.title : (trackData.song_title !== undefined ? trackData.song_title : trackData.name);
+                        if (trackTitleSource !== undefined && trackTitleSource !== null) {
+                            creditsState.trackCreditsMap[targetSongId].title = String(trackTitleSource).trim();
+                        }
+
                         const rawAdditional = trackData.additional_credits || trackData.custom_performances || trackData.credits;
                         if (Array.isArray(rawAdditional)) {
                             for (const creditGroup of rawAdditional) {
@@ -9092,6 +9104,7 @@ chrome.storage.local.get([
                             return {
                                 track: trackNum,
                                 song_id: song.id,
+                                title: song.title || "",
                                 primary_artists: (song.primary_artists || []).map(a => a.name),
                                 featured_artists: (song.featured_artists || []).map(a => a.name),
                                 producers: (song.producer_artists || []).map(a => a.name),

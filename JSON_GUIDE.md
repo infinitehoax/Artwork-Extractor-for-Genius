@@ -58,6 +58,7 @@ The single song editor expects a JSON object matching or subsetting the Genius A
 
 | Key Name | Data Type | Description & Validation Rules |
 | :--- | :--- | :--- |
+| `title` | `string` | The title/name of the song (e.g. `"Jolly Papa"`). |
 | `primary_tag_id` | `integer` or `null` | Numeric ID of the primary tag/genre (e.g. `16` for Pop, `352` for R&B, `1434` for Rap, `567` for Rock). |
 | `featured_artists` | `Array<ArtistRef>` | Array of featured performing artists. Can be an array of strings (`["Artist Name"]`) or objects (`[{"id": 123, "name": "Artist"}]`). |
 | `writer_artists` | `Array<ArtistRef>` | Array of songwriters and composers. Accepts strings or objects with IDs. |
@@ -96,6 +97,7 @@ You do not need to look up numeric Genius IDs manually. You can pass plain text 
 #### Example 1: Full Metadata Payload (With Resolved IDs)
 ```json
 {
+  "title": "Jolly Papa",
   "primary_tag_id": 352,
   "featured_artists": [
     {
@@ -160,6 +162,7 @@ You do not need to look up numeric Genius IDs manually. You can pass plain text 
 You can write simple string names instead of complex objects:
 ```json
 {
+  "title": "Jolly Papa",
   "featured_artists": ["Mavo"],
   "writer_artists": ["CKay"],
   "producer_artists": ["Hello"],
@@ -256,6 +259,7 @@ Top-level album properties and track-specific objects support all metadata field
 
 | Field Name | Data Type | Description |
 | :--- | :--- | :--- |
+| `title` / `song_title` / `name` | `string` | The title/name of the track. |
 | `primary_artists` | `Array<string \| object>` | Performing primary artists. |
 | `featured_artists` | `Array<string \| object>` | Featured performing artists. |
 | `producers` / `producer_artists` | `Array<string \| object>` | Music producers. |
@@ -286,6 +290,7 @@ Top-level album properties and track-specific objects support all metadata field
   "tracks": [
     {
       "track": 1,
+      "title": "Track One",
       "primary_artists": ["Band Name"],
       "writers": ["Singer Name"],
       "primary_tag": "Rock",
