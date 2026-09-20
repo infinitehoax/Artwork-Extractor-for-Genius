@@ -1,0 +1,1 @@
+(()=>{"use strict";if("/new/import"===location.pathname){let e=document.createElement("style");e.id="genius-plus-hide-404",e.textContent=".render_404{display:none!important}",document.documentElement.append(e)}})();

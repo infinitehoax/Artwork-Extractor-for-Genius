@@ -6,7 +6,8 @@
   "permissions": [
     "clipboardWrite",
     "storage",
-    "scripting"
+    "scripting",
+    "declarativeNetRequestWithHostAccess"
   ],
   "background": {
     "service_worker": "Popup/background.js"
@@ -131,9 +132,73 @@
         "Services/genius_album.js",
         "Services/genius_artist.js"
       ]
+    },
+    {
+      "matches": [
+        "https://genius.com/*",
+        "https://*.genius.com/*"
+      ],
+      "js": [
+        "content/genius.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://genius.com/*",
+        "https://*.genius.com/*"
+      ],
+      "js": [
+        "content/genius-main.js"
+      ],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://soundcloud.com/*",
+        "https://m.soundcloud.com/*"
+      ],
+      "js": [
+        "content/soundcloud.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://soundcloud.com/*",
+        "https://m.soundcloud.com/*"
+      ],
+      "js": [
+        "content/soundcloud-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://music.apple.com/*"
+      ],
+      "js": [
+        "content/apple-music.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://genius.com/new/import",
+        "https://*.genius.com/new/import"
+      ],
+      "js": [
+        "content/genius-early.js"
+      ],
+      "run_at": "document_start"
     }
   ],
   "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
     "128": "128.png"
   },
   "browser_specific_settings": {
@@ -161,6 +226,10 @@
     "*://*.yandex.ru/*",
     "*://music.youtube.com/*",
     "*://genius.com/*",
-    "*://genius-staging.com/*"
+    "*://genius-staging.com/*",
+    "https://*.mzstatic.com/*",
+    "https://*.sndcdn.com/*",
+    "https://music.apple.com/*",
+    "https://amp-api.music.apple.com/*"
   ]
 }
