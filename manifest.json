@@ -1,166 +1,99 @@
 {
-  "manifest_version": 3,
-  "name": "Artwork Extractor for Genius",
-  "version": "0.8.0",
-  "description": "Copy the artwork URL to the clipboard for genius.com by clicking the copy button on Apple Music, Deezer, Spotify, and more.",
-  "permissions": [
-    "clipboardWrite",
-    "storage",
-    "scripting"
-  ],
-  "background": {
-    "service_worker": "Popup/background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "Services/secrets.js"
-      ]
+"update_url": "https://clients2.google.com/service/update2/crx",
+
+    "manifest_version": 3,
+    "name": "Genius+",
+    "version": "0.1.0",
+    "description": "Edit a whole Genius album's credits in one table, import songs and credits from Apple Music, and save artwork full size.",
+    "icons": {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
     },
-    {
-      "matches": [
-        "*://*.45cat.com/*",
-        "*://*.45worlds.com/*",
-        "*://*.45spaces.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/45.js"
-      ]
+    "action": {
+        "default_title": "Genius+",
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon-16.png",
+            "32": "icons/icon-32.png",
+            "128": "icons/icon-128.png"
+        }
     },
-    {
-      "matches": [
-        "*://*.apple.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/apple.js"
-      ]
+    "background": {
+        "service_worker": "background.js"
     },
-    {
-      "matches": [
-        "*://*.bandcamp.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/bandcamp.js"
-      ]
-    },
-    {
-      "matches": [
-        "*://*.deezer.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/deezer.js"
-      ]
-    },
-    {
-      "matches": [
-        "*://*.distrokid.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/distrokid.js"
-      ]
-    },
-    {
-      "matches": [
-        "*://*.soundcloud.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/soundcloud.js"
-      ],
-      "all_frames": true
-    },
-    {
-      "matches": [
-        "*://*.spotify.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/spotify.js"
-      ]
-    },
-    {
-      "matches": [
-        "*://*.tidal.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/tidal.js"
-      ]
-    },
-    {
-      "matches": [
-        "*://*.yandex.ru/*",
-        "*://*.yandex.by/*",
-        "*://*.yandex.kz/*",
-        "*://*.yandex.uz/*",
-        "*://*.yandex.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/yandexmusic.js"
-      ]
-    },
-    {
-      "matches": [
-        "*://music.youtube.com/*"
-      ],
-      "js": [
-        "Services/streaming_utils.js",
-        "Services/youtubemusic.js"
-      ]
-    },
-    {
-      "matches": [
-        "*://genius.com/*",
-        "*://genius-staging.com/*"
-      ],
-      "css": [
-        "Services/genius.css"
-      ],
-      "js": [
-        "Services/genius_utils.js",
-        "Services/genius_song.js",
-        "Services/genius_album.js",
-        "Services/genius_artist.js"
-      ]
-    }
-  ],
-  "icons": {
-    "128": "128.png"
-  },
-  "browser_specific_settings": {
-    "gecko": {
-      "strict_min_version": "127.0"
-    }
-  },
-  "action": {
-    "default_popup": "Popup/popup.html",
-    "default_icon": {
-      "128": "128.png"
-    }
-  },
-  "host_permissions": [
-    "*://45cat.com/*",
-    "*://45worlds.com/*",
-    "*://45spaces.com/*",
-    "*://*.apple.com/*",
-    "*://*.bandcamp.com/*",
-    "*://*.deezer.com/*",
-    "*://*.distrokid.com/*",
-    "*://*.soundcloud.com/*",
-    "*://*.spotify.com/*",
-    "*://*.tidal.com/*",
-    "*://*.yandex.ru/*",
-    "*://music.youtube.com/*",
-    "*://genius.com/*",
-    "*://genius-staging.com/*"
-  ]
+    "permissions": [
+        "storage",
+        "declarativeNetRequestWithHostAccess"
+    ],
+    "host_permissions": [
+        "https://*.mzstatic.com/*",
+        "https://*.sndcdn.com/*",
+        "https://music.apple.com/*",
+        "https://amp-api.music.apple.com/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "https://genius.com/*",
+                "https://*.genius.com/*"
+            ],
+            "js": [
+                "content/genius.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://genius.com/*",
+                "https://*.genius.com/*"
+            ],
+            "js": [
+                "content/genius-main.js"
+            ],
+            "run_at": "document_idle",
+            "world": "MAIN"
+        },
+        {
+            "matches": [
+                "https://soundcloud.com/*",
+                "https://m.soundcloud.com/*"
+            ],
+            "js": [
+                "content/soundcloud.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://soundcloud.com/*",
+                "https://m.soundcloud.com/*"
+            ],
+            "js": [
+                "content/soundcloud-main.js"
+            ],
+            "run_at": "document_start",
+            "world": "MAIN"
+        },
+        {
+            "matches": [
+                "https://music.apple.com/*"
+            ],
+            "js": [
+                "content/apple-music.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://genius.com/new/import",
+                "https://*.genius.com/new/import"
+            ],
+            "js": [
+                "content/genius-early.js"
+            ],
+            "run_at": "document_start"
+        }
+    ]
 }

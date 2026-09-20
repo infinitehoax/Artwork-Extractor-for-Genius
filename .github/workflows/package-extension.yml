@@ -16,7 +16,7 @@ jobs:
 
       - name: Create zip archive
         run: |
-          zip -r extension.zip manifest.json 128.png Popup/ Services/ LICENSE README.md
+          zip -r extension.zip manifest.json background.js popup.html popup.js content/ icons/ LICENSE README.md
 
       - name: Upload Extension Artifact
         uses: actions/upload-artifact@v4
