@@ -170,6 +170,11 @@ async function getApiData(id, type) {
 // ? Loads many ids through the rate limiter and keeps the input order.
 // * A single failed request returns null instead of rejecting the whole batch, so one rate limited song can't blank the page.
 async function getApiDataBatch(ids, type) {
+    if (ids && ids.length > 1) {
+        if (typeof confirm === 'function' && !confirm(`Fetch information from ${ids.length} ${type} URLs on the site?`)) {
+            return ids.map(() => null);
+        }
+    }
     const results = await Promise.all(ids.map(id =>
         getApiData(id, type).catch(error => {
             console.warn(`Request for ${type}/${id} failed:`, error);
