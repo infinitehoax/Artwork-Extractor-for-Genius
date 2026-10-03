@@ -1146,6 +1146,9 @@ OR line-separated URLs/IDs`;
     }
 
     async function fetchAllSongIds(artistId) {
+        if (typeof confirm === 'function' && !confirm("Fetch all song IDs across pages for this artist?")) {
+            return [];
+        }
         let songIds = [], page = 1, perPage = 50;
         while (true) {
             const json = await geniusFetch(`https://genius.com/api/artists/${artistId}/songs?page=${page}&per_page=${perPage}`)
@@ -1329,6 +1332,9 @@ OR line-separated URLs/IDs`;
         }
 
         async function fetchAllSongsDirect(id, type, button) {
+            if (typeof confirm === 'function' && !confirm("Fetch all songs across pages for this artist?")) {
+                return [];
+            }
             const perPage = 50;
             const workers = [1, 2, 3];
             let allSongs = [];
@@ -1789,6 +1795,9 @@ OR line-separated URLs/IDs`;
         }
 
         async function fetchAllAlbumsDirect(id, type, button) {
+            if (typeof confirm === 'function' && !confirm("Fetch all albums across pages for this artist?")) {
+                return [];
+            }
             const perPage = 50;
             const workers = [1, 2, 3];
             let allAlbums = [];
@@ -1816,6 +1825,9 @@ OR line-separated URLs/IDs`;
         }
 
         async function fetchAllSongIds(id, type, button) {
+            if (typeof confirm === 'function' && !confirm("Fetch all song IDs across pages for this artist?")) {
+                return [];
+            }
             const perPage = 50;
             const workers = [1, 2, 3];
             let ids = [];
@@ -1836,6 +1848,9 @@ OR line-separated URLs/IDs`;
         }
 
         async function fetchAllAlbumIds(id, type, button) {
+            if (typeof confirm === 'function' && !confirm("Fetch all album IDs across pages for this artist?")) {
+                return [];
+            }
             const perPage = 50;
             const workers = [1, 2, 3];
             let ids = [];
@@ -2368,6 +2383,9 @@ OR line-separated URLs/IDs`;
         let items = [];
 
         async function fetchAll(artistId, type) {
+            if (typeof confirm === 'function' && !confirm(`Fetch all ${type} from multiple pages for artist #${artistId}?`)) {
+                return [];
+            }
             const results = [];
             const workers = 5;
             const perPage = 50;

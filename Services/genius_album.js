@@ -261,6 +261,11 @@ chrome.storage.local.get([
             while ((match = songIdRegex.exec(html)) !== null) {
                 songIds.push(match[1]);
             }
+            if (songIds.length > 1) {
+                if (typeof confirm === 'function' && !confirm(`Fetch information from ${songIds.length} song URLs on the site?`)) {
+                    return [];
+                }
+            }
             // * geniusFetch() queues through the shared rate limiter, so long tracklists don't fire at once.
             const responses = await Promise.all(songIds.map(songId =>
                 geniusFetch(`https://genius.com/api/songs/${songId}`).then(res => res.json())
