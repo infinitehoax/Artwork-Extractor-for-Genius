@@ -9268,25 +9268,38 @@ chrome.storage.local.get([
         console.log("Run function lyricStateTracklist()");
 
         songData.forEach(song => {
-            const trackContainer = document.querySelector(`a[href="${song.url}"]`)?.closest('a[class^="Track__Container-"]');
+            const trackContainer = document.querySelector(
+                `a[href="${song.url}"]`
+            )?.closest('div[class^="Track__Container-"]');
             if (!trackContainer) return;
 
-            const viewsContainer = trackContainer.querySelector('div[class^="Track__Views-"]');
-            if (!viewsContainer) return;
+            const creditsButton = trackContainer.querySelector(
+                'button[class*="Track__CreditsToggle"]'
+            );
+            if (!creditsButton) return;
 
-            if (viewsContainer.querySelector('.lyric-status-box')) return;
+            creditsButton.style.marginLeft = "0.55rem";
 
-            const lyricsAreValidated = song.lyrics_marked_complete_by || song.lyrics_marked_staff_approved_by || song.lyrics_verified === true;
+            const lyricsAreValidated =
+                song.lyrics_marked_complete_by ||
+                song.lyrics_marked_staff_approved_by ||
+                song.lyrics_verified === true;
+
             const userRoles = userData?.roles_for_display;
 
             let color = '#ff7878';
-            if (userRoles.includes('transcriber') || userRoles.includes('editor') || userRoles.includes('moderator')) {
-                if (lyricsAreValidated && song.current_user_metadata?.excluded_permissions?.includes("award_transcription_iq")) {
+            if (userRoles.includes('transcriber') ||
+                userRoles.includes('editor') ||
+                userRoles.includes('moderator')) {
+
+                if (lyricsAreValidated &&
+                    song.current_user_metadata?.excluded_permissions?.includes("award_transcription_iq")) {
                     color = '#99f2a5';
                 } else if (song.lyrics_state === 'complete' &&
                     song.current_user_metadata?.excluded_permissions?.includes("award_transcription_iq")) {
                     color = '#ffff64';
-                } else if (song.lyrics_state === 'complete' && song.current_user_metadata?.permissions?.includes("award_transcription_iq")) {
+                } else if (song.lyrics_state === 'complete' &&
+                    song.current_user_metadata?.permissions?.includes("award_transcription_iq")) {
                     color = '#ffa335';
                 }
             } else {
@@ -9297,24 +9310,27 @@ chrome.storage.local.get([
                 }
             }
 
-            const box = document.createElement('div');
-            box.className = 'lyric-status-box';
-            box.style.width = '0.625rem';
-            box.style.height = '100%';
-            box.style.borderRadius = '1.25rem';
-            box.style.backgroundColor = color;
-            box.style.marginLeft = 'auto';
-            box.style.position = 'relative';
+            const applyCircle = () => {
+                const svg = creditsButton.querySelector('svg');
+                if (!svg) return;
 
-            if (song.pending_lyrics_edits_count > 0) {
-                box.style.boxShadow = '2px 2px 0.225rem 0px #000';
-            }
+                svg.style.display = 'inline-block';
+                svg.style.backgroundColor = color;
+                svg.style.borderRadius = '50%';
+                svg.style.padding = '0.375rem';
+                svg.style.boxSizing = 'content-box';
 
-            const wrapper = document.createElement("div");
-            wrapper.style.marginLeft = "0.5rem";
+                if (song.pending_lyrics_edits_count > 0) {
+                    svg.style.filter = 'drop-shadow(0 0 6px #000)';
+                } else {
+                    svg.style.filter = '';
+                }
+            };
 
-            viewsContainer.appendChild(wrapper);
-            viewsContainer.appendChild(box);
+            applyCircle();
+
+            const observer = new MutationObserver(() => applyCircle());
+            observer.observe(creditsButton, { childList: true, subtree: true });
         });
     }
 
