@@ -3051,21 +3051,35 @@ chrome.storage.local.get([
         csrfToken = getCsrfToken();
 
         function extractTrackNumbers() {
-            const trackContainers = document.querySelectorAll('.chart_row-number_container.chart_row-number_container--align_left');
+            const trackContainers = document.querySelectorAll('.chart_row-number_container.chart_row-number_container--align_left, [class*="Track__Container"], div[class*="Track__Number"]');
             let currentTrackNumber = 0;
 
-            trackContainers.forEach((container) => {
-                const numberElement = container.querySelector('.chart_row-number_container-number span');
-                const trackNumber = numberElement ? numberElement.textContent.trim() : '';
-                rawTrackNumbers.push(trackNumber);
+            if (trackContainers.length > 0) {
+                trackContainers.forEach((container) => {
+                    let trackNumber = '';
+                    if (container.matches && container.matches('div[class*="Track__Number"], .chart_row-number_container-number span')) {
+                        trackNumber = container.textContent.trim();
+                    } else {
+                        const numberElement = container.querySelector('.chart_row-number_container-number span, div[class*="Track__Number-"]');
+                        trackNumber = numberElement ? numberElement.textContent.trim() : '';
+                    }
+                    rawTrackNumbers.push(trackNumber);
 
-                if (trackNumber && !isNaN(trackNumber)) {
-                    currentTrackNumber = parseInt(trackNumber, 10);
-                } else {
-                    currentTrackNumber += 1;
-                }
+                    if (trackNumber && !isNaN(trackNumber)) {
+                        currentTrackNumber = parseInt(trackNumber, 10);
+                    } else {
+                        currentTrackNumber += 1;
+                    }
+                    trackNumbers.push(currentTrackNumber);
+                });
+            }
+
+            const targetLength = songIds ? songIds.length : 0;
+            for (let i = rawTrackNumbers.length; i < targetLength; i++) {
+                currentTrackNumber += 1;
+                rawTrackNumbers.push(String(i + 1));
                 trackNumbers.push(currentTrackNumber);
-            });
+            }
 
             return { rawTrackNumbers, trackNumbers };
         }
@@ -3991,7 +4005,8 @@ chrome.storage.local.get([
                 const checkboxContainer = document.createElement('div');
                 checkboxContainer.style.display = 'grid';
 
-                const itemsPerRow = Math.ceil(trackNumbers.length / Math.ceil(trackNumbers.length / 15));
+                const totalTracks = Math.max(songIds ? songIds.length : 0, trackNumbers ? trackNumbers.length : 0, 1);
+                const itemsPerRow = Math.ceil(totalTracks / Math.ceil(totalTracks / 15));
                 checkboxContainer.style.gridTemplateColumns = `repeat(${itemsPerRow}, auto)`;
 
                 tracklistContainer.appendChild(tracklistLabel);
@@ -4035,17 +4050,18 @@ chrome.storage.local.get([
                     checkbox.id = `checkbox_${songId}`;
                     checkbox.name = `song_${songId}`;
 
-                    const rawTrackNumber = rawTrackNumbers[index];
-                    checkbox.checked = rawTrackNumber !== '';
+                    const rawTrackVal = (rawTrackNumbers && rawTrackNumbers[index] !== undefined && rawTrackNumbers[index] !== null) ? String(rawTrackNumbers[index]) : '';
+                    const trackNumDisplay = rawTrackVal !== '' ? rawTrackVal : ((trackNumbers && trackNumbers[index]) ? String(trackNumbers[index]) : String(index + 1));
+                    checkbox.checked = true;
                     checkbox.className = 'styled-checkbox';
                     checkbox.style.cursor = 'pointer';
 
                     const label = document.createElement('label');
                     label.htmlFor = `checkbox_${songId}`;
-                    label.textContent = rawTrackNumber !== '' ? `${rawTrackNumber}` : toRoman(autoCounter++);
+                    label.textContent = trackNumDisplay !== '' ? trackNumDisplay : toRoman(autoCounter++);
                     label.style.marginLeft = '0.25rem';
                     label.style.textAlign = songIds.length <= 15 ? 'left' : 'right';
-                    label.style.width = '0.85rem';
+                    label.style.minWidth = '0.85rem';
                     label.style.display = 'inline-block';
                     label.style.cursor = 'pointer';
 
@@ -5435,27 +5451,41 @@ chrome.storage.local.get([
         const DELAY_BEFORE_REOPEN = 150; // ? milliseconds
 
         function extractTrackNumbers() {
-            const trackContainers = document.querySelectorAll('a[class^="Track__Container-"]');
+            const trackContainers = document.querySelectorAll('a[class^="Track__Container-"], [class*="Track__Container"], div[class*="Track__Number"], .chart_row-number_container');
 
             const rawTrackNumbers = [];
             const trackNumbers = [];
 
             let currentTrackNumber = 0;
 
-            trackContainers.forEach(container => {
-                const numberElement = container.querySelector('div[class*="Track__Number-"]');
-                const trackNumber = numberElement ? numberElement.textContent.trim() : '';
+            if (trackContainers.length > 0) {
+                trackContainers.forEach(container => {
+                    let trackNumber = '';
+                    if (container.matches && container.matches('div[class*="Track__Number"], .chart_row-number_container-number span')) {
+                        trackNumber = container.textContent.trim();
+                    } else {
+                        const numberElement = container.querySelector('div[class*="Track__Number-"], .chart_row-number_container-number span');
+                        trackNumber = numberElement ? numberElement.textContent.trim() : '';
+                    }
 
-                rawTrackNumbers.push(trackNumber);
+                    rawTrackNumbers.push(trackNumber);
 
-                if (trackNumber && !isNaN(trackNumber)) {
-                    currentTrackNumber = parseInt(trackNumber, 10);
-                } else {
-                    currentTrackNumber += 1;
-                }
+                    if (trackNumber && !isNaN(trackNumber)) {
+                        currentTrackNumber = parseInt(trackNumber, 10);
+                    } else {
+                        currentTrackNumber += 1;
+                    }
 
+                    trackNumbers.push(currentTrackNumber);
+                });
+            }
+
+            const targetLength = songIds ? songIds.length : 0;
+            for (let i = rawTrackNumbers.length; i < targetLength; i++) {
+                currentTrackNumber += 1;
+                rawTrackNumbers.push(String(i + 1));
                 trackNumbers.push(currentTrackNumber);
-            });
+            }
 
             return { rawTrackNumbers, trackNumbers };
         }
@@ -6688,9 +6718,10 @@ chrome.storage.local.get([
                 tracklistLabel.appendChild(allTracksButton);
 
                 const checkboxContainer = document.createElement('div');
+                const totalTracks = Math.max(songIds ? songIds.length : 0, trackNumbers ? trackNumbers.length : 0, 1);
                 Object.assign(checkboxContainer.style, {
                     display: "grid",
-                    gridTemplateColumns: `repeat(${Math.ceil(trackNumbers.length / Math.ceil(trackNumbers.length / 15))}, auto)`
+                    gridTemplateColumns: `repeat(${Math.ceil(totalTracks / Math.ceil(totalTracks / 15))}, auto)`
                 });
 
                 const line = document.createElement('hr');
@@ -6738,8 +6769,9 @@ chrome.storage.local.get([
                     });
 
                     const checkSvg = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23fff' d='m15.5 4.9-7.9 10-5-5L4 8.3l3.4 3.4L14 3.6 15.5 5Z'/%3E%3C/svg%3E\")";
-                    const rawTrackNumber = rawTrackNumbers[index];
-                    checkbox.checked = rawTrackNumber !== "";
+                    const rawTrackVal = (rawTrackNumbers && rawTrackNumbers[index] !== undefined && rawTrackNumbers[index] !== null) ? String(rawTrackNumbers[index]) : '';
+                    const trackNumDisplay = rawTrackVal !== '' ? rawTrackVal : ((trackNumbers && trackNumbers[index]) ? String(trackNumbers[index]) : String(index + 1));
+                    checkbox.checked = true;
                     checkbox.className = 'styled-checkbox';
 
                     const updateCheckboxStyle = () => {
@@ -6757,11 +6789,11 @@ chrome.storage.local.get([
 
                     const label = document.createElement('label');
                     label.htmlFor = `checkbox_${songId}`;
-                    label.textContent = rawTrackNumber !== '' ? `${rawTrackNumber}` : toRoman(autoCounter++);
+                    label.textContent = trackNumDisplay !== '' ? trackNumDisplay : toRoman(autoCounter++);
                     Object.assign(label.style, {
                         marginLeft: "0.25rem",
                         textAlign: songIds.length <= 15 ? "left" : "right",
-                        width: "0.85rem",
+                        minWidth: "0.85rem",
                         display: "inline-block",
                         cursor: "pointer",
                         overflowWrap: "normal"
@@ -6822,9 +6854,10 @@ chrome.storage.local.get([
                 tracklistLabel.appendChild(allTracksContainer);
 
                 const checkboxContainer = document.createElement('div');
+                const totalTracks = Math.max(songIds ? songIds.length : 0, trackNumbers ? trackNumbers.length : 0, 1);
                 Object.assign(checkboxContainer.style, {
                     display: "grid",
-                    gridTemplateColumns: `repeat(${Math.ceil(trackNumbers.length / Math.ceil(trackNumbers.length / 20))}, auto)`
+                    gridTemplateColumns: `repeat(${Math.ceil(totalTracks / Math.ceil(totalTracks / 20))}, auto)`
                 });
 
                 function toRoman(num) {
@@ -6870,8 +6903,9 @@ chrome.storage.local.get([
 
                     const checkSvg = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23fff' d='m15.5 4.9-7.9 10-5-5L4 8.3l3.4 3.4L14 3.6 15.5 5Z'/%3E%3C/svg%3E\")";
 
-                    const rawTrackNumber = rawTrackNumbers[index];
-                    checkbox.checked = rawTrackNumber !== "";
+                    const rawTrackVal = (rawTrackNumbers && rawTrackNumbers[index] !== undefined && rawTrackNumbers[index] !== null) ? String(rawTrackNumbers[index]) : '';
+                    const trackNumDisplay = rawTrackVal !== '' ? rawTrackVal : ((trackNumbers && trackNumbers[index]) ? String(trackNumbers[index]) : String(index + 1));
+                    checkbox.checked = true;
                     checkbox.className = 'styled-checkbox';
 
 
@@ -6890,10 +6924,10 @@ chrome.storage.local.get([
 
                     const label = document.createElement('label');
                     label.htmlFor = checkbox.id;
-                    label.textContent = rawTrackNumber !== '' ? `${rawTrackNumber}` : toRoman(autoCounter++);
+                    label.textContent = trackNumDisplay !== '' ? trackNumDisplay : toRoman(autoCounter++);
                     Object.assign(label.style, {
                         marginLeft: "0.15rem",
-                        width: "0.5rem",
+                        minWidth: "0.5rem",
                         display: "inline-block",
                         cursor: "pointer"
                     });
