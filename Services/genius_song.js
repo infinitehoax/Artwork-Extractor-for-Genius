@@ -3779,11 +3779,11 @@ chrome.storage.local.get([
 
             if (isGeniusSongClaimButton) {
                 if (mappedButtons.length > 1 && (mappedButtons[1].label === null || mappedButtons[1].fullText === null)) {
-                    mappedButtons[1] = { displayText: "Claim", fullText: "Claim", hoverText: "Claim" };
+                    mappedButtons[1] = { label: "Claim", fullText: "Claim", hoverText: "Claim" };
                 } else if (mappedButtons.length > 0 && (mappedButtons[0].label === null || mappedButtons[0].fullText === null)) {
-                    mappedButtons[0] = { displayText: "Claim", fullText: "Claim", hoverText: "Claim" };
+                    mappedButtons[0] = { label: "Claim", fullText: "Claim", hoverText: "Claim" };
                 } else {
-                    mappedButtons.unshift({ displayText: "Claim", fullText: "Claim", hoverText: "Claim" });
+                    mappedButtons.unshift({ label: "Claim", fullText: "Claim", hoverText: "Claim" });
                 }
             }
 
