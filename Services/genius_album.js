@@ -3051,7 +3051,10 @@ chrome.storage.local.get([
         csrfToken = getCsrfToken();
 
         function extractTrackNumbers() {
-            const trackContainers = document.querySelectorAll('.chart_row-number_container.chart_row-number_container--align_left, [class*="Track__Container"], div[class*="Track__Number"]');
+            const rawElements = document.querySelectorAll('.chart_row-number_container.chart_row-number_container--align_left, [class*="Track__Container"], div[class*="Track__Number"]');
+            const trackContainers = Array.from(rawElements).filter(container =>
+                !Array.from(rawElements).some(parent => parent !== container && parent.contains(container))
+            );
             let currentTrackNumber = 0;
 
             if (trackContainers.length > 0) {
@@ -3075,10 +3078,15 @@ chrome.storage.local.get([
             }
 
             const targetLength = songIds ? songIds.length : 0;
-            for (let i = rawTrackNumbers.length; i < targetLength; i++) {
-                currentTrackNumber += 1;
-                rawTrackNumbers.push(String(i + 1));
-                trackNumbers.push(currentTrackNumber);
+            if (targetLength > 0 && rawTrackNumbers.length > targetLength) {
+                rawTrackNumbers.splice(targetLength);
+                trackNumbers.splice(targetLength);
+            } else {
+                for (let i = rawTrackNumbers.length; i < targetLength; i++) {
+                    currentTrackNumber += 1;
+                    rawTrackNumbers.push(String(i + 1));
+                    trackNumbers.push(currentTrackNumber);
+                }
             }
 
             return { rawTrackNumbers, trackNumbers };
@@ -5451,7 +5459,10 @@ chrome.storage.local.get([
         const DELAY_BEFORE_REOPEN = 150; // ? milliseconds
 
         function extractTrackNumbers() {
-            const trackContainers = document.querySelectorAll('a[class^="Track__Container-"], [class*="Track__Container"], div[class*="Track__Number"], .chart_row-number_container');
+            const rawElements = document.querySelectorAll('a[class^="Track__Container-"], [class*="Track__Container"], div[class*="Track__Number"], .chart_row-number_container');
+            const trackContainers = Array.from(rawElements).filter(container =>
+                !Array.from(rawElements).some(parent => parent !== container && parent.contains(container))
+            );
 
             const rawTrackNumbers = [];
             const trackNumbers = [];
@@ -5481,10 +5492,15 @@ chrome.storage.local.get([
             }
 
             const targetLength = songIds ? songIds.length : 0;
-            for (let i = rawTrackNumbers.length; i < targetLength; i++) {
-                currentTrackNumber += 1;
-                rawTrackNumbers.push(String(i + 1));
-                trackNumbers.push(currentTrackNumber);
+            if (targetLength > 0 && rawTrackNumbers.length > targetLength) {
+                rawTrackNumbers.splice(targetLength);
+                trackNumbers.splice(targetLength);
+            } else {
+                for (let i = rawTrackNumbers.length; i < targetLength; i++) {
+                    currentTrackNumber += 1;
+                    rawTrackNumbers.push(String(i + 1));
+                    trackNumbers.push(currentTrackNumber);
+                }
             }
 
             return { rawTrackNumbers, trackNumbers };
