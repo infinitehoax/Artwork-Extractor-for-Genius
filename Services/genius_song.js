@@ -13,6 +13,8 @@ chrome.storage.local.get([
     'isGeniusSongLanguageButton',
     'isGeniusSongCleanupButton',
     'isGeniusSongSectionsButtons',
+    'isGeniusSongClaimButton',
+    'geniusSongClaimText',
     'isGeniusSongExpandSectionsButtons',
     'isGeniusSongAnnotationsButtons',
     'isGeniusSongFilterActivity',
@@ -40,6 +42,9 @@ chrome.storage.local.get([
     const isGeniusSongLanguageButton = result.isGeniusSongLanguageButton ?? true;
     const isGeniusSongCleanupButton = result.isGeniusSongCleanupButton ?? true;
     const isGeniusSongSectionsButtons = result.isGeniusSongSectionsButtons ?? true;
+    const isGeniusSongClaimButton = result.isGeniusSongClaimButton ?? true;
+    const defaultClaimText = `<b>Scribing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
+    const geniusSongClaimText = result.geniusSongClaimText ?? defaultClaimText;
     const isGeniusSongExpandSectionsButtons = result.isGeniusSongExpandSectionsButtons ?? false;
     const isGeniusSongAnnotationsButtons = result.isGeniusSongAnnotationsButtons ?? true;
     const isGeniusSongFilterActivity = result.isGeniusSongFilterActivity ?? true;
@@ -2919,6 +2924,22 @@ chrome.storage.local.get([
             }
         }
 
+        function insertClaimHeader() {
+            const { lyricsTextareaInputTextarea } = getDomElements();
+            if (!lyricsTextareaInputTextarea) return;
+
+            const claimText = geniusSongClaimText || defaultClaimText;
+            const currentText = lyricsTextareaInputTextarea.value.trim();
+
+            lyricsTextareaInputTextarea.focus();
+            if (!currentText.startsWith(claimText)) {
+                lyricsTextareaInputTextarea.value = claimText + (currentText ? "\n\n" + currentText : "");
+                lyricsTextareaInputTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                const newPos = claimText.length;
+                lyricsTextareaInputTextarea.setSelectionRange(newPos, newPos);
+            }
+        }
+
         function insertVerseHeader(fullText) {
             insertTextAtCursor(`[${fullText}]`);
 
@@ -2985,6 +3006,7 @@ chrome.storage.local.get([
                 Header: () => insertSeoHeader(songData, hoverText, storedLanguage),
                 Translation: () => insertSeoHeader(songData, hoverText, storedLanguage),
                 Snippet: () => insertSeoHeader(songData, hoverText, storedLanguage),
+                Claim: () => insertClaimHeader(),
                 Part: () => insertPartHeader(fullText),
                 Verse: () => insertVerseHeader(fullText),
                 default: () => insertTextAtCursor(`[${fullText}]`)
@@ -3747,15 +3769,27 @@ chrome.storage.local.get([
 
             const langLabels = HEADERS[storedLanguage];
             const tagName = songData.primary_tag?.name;
-            const buttonLabels = langLabels?.[tagName] || langLabels?.Default || [];
+            let buttonLabels = langLabels?.[tagName] || langLabels?.Default || [];
+
+            let mappedButtons = buttonLabels.map(b => ({
+                label: b.displayText,
+                fullText: b.fullText,
+                hoverText: b.hoverText
+            }));
+
+            if (isGeniusSongClaimButton) {
+                if (mappedButtons.length > 1 && (mappedButtons[1].label === null || mappedButtons[1].fullText === null)) {
+                    mappedButtons[1] = { displayText: "Claim", fullText: "Claim", hoverText: "Claim" };
+                } else if (mappedButtons.length > 0 && (mappedButtons[0].label === null || mappedButtons[0].fullText === null)) {
+                    mappedButtons[0] = { displayText: "Claim", fullText: "Claim", hoverText: "Claim" };
+                } else {
+                    mappedButtons.unshift({ displayText: "Claim", fullText: "Claim", hoverText: "Claim" });
+                }
+            }
 
             renderButtons(
                 headerDiv,
-                buttonLabels.map(b => ({
-                    label: b.displayText,
-                    fullText: b.fullText,
-                    hoverText: b.hoverText
-                })),
+                mappedButtons,
                 (name) => editmetadatabutonSmallbutton.className.replace("EditMetadataButton", `${name}Button`),
                 storedLanguage
             );

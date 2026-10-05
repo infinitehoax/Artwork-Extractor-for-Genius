@@ -220,6 +220,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const isGeniusSongLanguageButton = document.getElementById('isGeniusSongLanguageButton').checked;
         const isGeniusSongCleanupButton = document.getElementById('isGeniusSongCleanupButton').checked;
         const isGeniusSongSectionsButtons = document.getElementById('isGeniusSongSectionsButtons').checked;
+    const isGeniusSongClaimButton = document.getElementById('isGeniusSongClaimButton').checked;
+    const geniusSongClaimText = document.getElementById('geniusSongClaimText').value;
         const isGeniusSongExpandSectionsButtons = document.getElementById('isGeniusSongExpandSectionsButtons').checked;
         const isGeniusSongAnnotationsButtons = document.getElementById('isGeniusSongAnnotationsButtons').checked;
         const isGeniusSongFilterActivity = document.getElementById('isGeniusSongFilterActivity').checked;
@@ -347,6 +349,8 @@ document.addEventListener('DOMContentLoaded', function () {
             isGeniusSongLanguageButton: isGeniusSongLanguageButton,
             isGeniusSongCleanupButton: isGeniusSongCleanupButton,
             isGeniusSongSectionsButtons: isGeniusSongSectionsButtons,
+            isGeniusSongClaimButton: isGeniusSongClaimButton,
+            geniusSongClaimText: geniusSongClaimText,
             isGeniusSongExpandSectionsButtons: isGeniusSongExpandSectionsButtons,
             isGeniusSongAnnotationsButtons: isGeniusSongAnnotationsButtons,
             isGeniusSongFilterActivity: isGeniusSongFilterActivity,
@@ -463,7 +467,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     chrome.storage.local.get([
-        'isGeniusSongSongPage', 'isGeniusSongSongPageZwsp', 'isGeniusSongSongPageInfo', 'isGeniusSongSongId', 'isGeniusSongCheckIndex', 'isGeniusSongFollowButton', 'isGeniusSongTranslationButton','isGeniusSongShellyButton', 'isGeniusSongCleanupMetadataButton', 'isGeniusSongLanguageButton', 'isGeniusSongCleanupButton', 'isGeniusSongSectionsButtons', 'isGeniusSongExpandSectionsButtons', 'isGeniusSongAnnotationsButtons', 'isGeniusSongFilterActivity', 'isGeniusSongFilterNotifications', 'isGeniusSongSaveFilters', 'isGeniusSongFilterFirehose','isGeniusSongCopyCover', 'isGeniusSongAppleMusicPlayer', 'isGeniusSongYouTubePlayer', 'isGeniusSongSoundCloudPlayer', 'isGeniusSongSpotifyPlayer', 'isGeniusSongLyricEditor', 'isGeniusSongRenameButtons',
+        'isGeniusSongSongPage', 'isGeniusSongSongPageZwsp', 'isGeniusSongSongPageInfo', 'isGeniusSongSongId', 'isGeniusSongCheckIndex', 'isGeniusSongFollowButton', 'isGeniusSongTranslationButton','isGeniusSongShellyButton', 'isGeniusSongCleanupMetadataButton', 'isGeniusSongLanguageButton', 'isGeniusSongCleanupButton', 'isGeniusSongSectionsButtons', 'isGeniusSongClaimButton', 'geniusSongClaimText', 'isGeniusSongExpandSectionsButtons', 'isGeniusSongAnnotationsButtons', 'isGeniusSongFilterActivity', 'isGeniusSongFilterNotifications', 'isGeniusSongSaveFilters', 'isGeniusSongFilterFirehose','isGeniusSongCopyCover', 'isGeniusSongAppleMusicPlayer', 'isGeniusSongYouTubePlayer', 'isGeniusSongSoundCloudPlayer', 'isGeniusSongSpotifyPlayer', 'isGeniusSongLyricEditor', 'isGeniusSongRenameButtons',
         'isGeniusAlbumAlbumPage', 'isGeniusAlbumAlbumPageZwsp', 'isGeniusAlbumAlbumPageInfo', 'isGeniusAlbumAlbumId', 'isGeniusAlbumAlbumPageLyrics', 'isGeniusAlbumExpandTracklist', 'isGeniusAlbumEditTracklist', 'isGeniusAlbumUploadCover', 'isGeniusAlbumRenameButtons', 'isGeniusAlbumSongCreditsButton', 'isGeniusAlbumSongCreditsAutoReopen', 'isGeniusAlbumFollowButton', 'isGeniusAlbumCleanupButton', 'isGeniusAlbumBulkInstrumental',
         'isGeniusArtistArtistPage', 'isGeniusArtistArtistPageZwsp', 'isGeniusArtistArtistPageInfo', 'isGeniusArtistArtistId', 'isGeniusArtistAllSongsAlbumsPage', 'isGeniusArtistAllSongsAlbumsPageMetadata', 'isGeniusArtistAllSongsAlbumsPageZwsp', 'isGeniusArtistFollowButton', 'isGeniusArtistSpreadsheetButton', 'isGeniusArtistSearchArtistMetadata', 'isGeniusArtistBulkAwardIq', 'isGeniusArtistRecords', 'isGeniusArtistNewPage',
         'is45CopyCover', 'is45Popup', 'is45ConvertPNG', 'is45SaveImage', 'is45HostImgBB', 'is45HostFilestack', 'is45RightClick',
@@ -490,6 +494,9 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('isGeniusSongLanguageButton').checked = result.isGeniusSongLanguageButton !== undefined ? result.isGeniusSongLanguageButton : true;
         document.getElementById('isGeniusSongCleanupButton').checked = result.isGeniusSongCleanupButton !== undefined ? result.isGeniusSongCleanupButton : true;
         document.getElementById('isGeniusSongSectionsButtons').checked = result.isGeniusSongSectionsButtons !== undefined ? result.isGeniusSongSectionsButtons : true;
+        document.getElementById('isGeniusSongClaimButton').checked = result.isGeniusSongClaimButton !== undefined ? result.isGeniusSongClaimButton : true;
+        const defaultClaimText = `<b>Scribing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
+        document.getElementById('geniusSongClaimText').value = result.geniusSongClaimText !== undefined ? result.geniusSongClaimText : defaultClaimText;
         document.getElementById('isGeniusSongExpandSectionsButtons').checked = result.isGeniusSongExpandSectionsButtons !== undefined ? result.isGeniusSongExpandSectionsButtons : false;
         document.getElementById('isGeniusSongAnnotationsButtons').checked = result.isGeniusSongAnnotationsButtons !== undefined ? result.isGeniusSongAnnotationsButtons : true;
         document.getElementById('isGeniusSongFilterActivity').checked = result.isGeniusSongFilterActivity !== undefined ? result.isGeniusSongFilterActivity : true;
@@ -618,6 +625,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('isGeniusSongLanguageButton').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongCleanupButton').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongSectionsButtons').addEventListener('change', saveSettings);
+    document.getElementById('isGeniusSongClaimButton').addEventListener('change', saveSettings);
+    document.getElementById('geniusSongClaimText').addEventListener('input', saveSettings);
     document.getElementById('isGeniusSongExpandSectionsButtons').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongAnnotationsButtons').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongFilterActivity').addEventListener('change', saveSettings);
