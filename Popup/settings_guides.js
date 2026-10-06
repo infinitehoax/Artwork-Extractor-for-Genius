@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('isGeniusSongCleanupButton').checked = result.isGeniusSongCleanupButton !== undefined ? result.isGeniusSongCleanupButton : true;
         document.getElementById('isGeniusSongSectionsButtons').checked = result.isGeniusSongSectionsButtons !== undefined ? result.isGeniusSongSectionsButtons : true;
         document.getElementById('isGeniusSongClaimButton').checked = result.isGeniusSongClaimButton !== undefined ? result.isGeniusSongClaimButton : true;
-        const defaultClaimText = `<b>Scribing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
+        const defaultClaimText = `<b>Fixing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
         document.getElementById('geniusSongClaimText').value = result.geniusSongClaimText !== undefined ? result.geniusSongClaimText : defaultClaimText;
         document.getElementById('isGeniusSongExpandSectionsButtons').checked = result.isGeniusSongExpandSectionsButtons !== undefined ? result.isGeniusSongExpandSectionsButtons : false;
         document.getElementById('isGeniusSongAnnotationsButtons').checked = result.isGeniusSongAnnotationsButtons !== undefined ? result.isGeniusSongAnnotationsButtons : true;

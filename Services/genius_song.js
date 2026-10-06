@@ -43,7 +43,7 @@ chrome.storage.local.get([
     const isGeniusSongCleanupButton = result.isGeniusSongCleanupButton ?? true;
     const isGeniusSongSectionsButtons = result.isGeniusSongSectionsButtons ?? true;
     const isGeniusSongClaimButton = result.isGeniusSongClaimButton ?? true;
-    const defaultClaimText = `<b>Scribing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
+    const defaultClaimText = `<b>Fixing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
     const geniusSongClaimText = result.geniusSongClaimText ?? defaultClaimText;
     const isGeniusSongExpandSectionsButtons = result.isGeniusSongExpandSectionsButtons ?? false;
     const isGeniusSongAnnotationsButtons = result.isGeniusSongAnnotationsButtons ?? true;
@@ -3300,7 +3300,7 @@ chrome.storage.local.get([
                 },
                 "en": { // English
                     Default: [
-                        { displayText: null, fullText: null, hoverText: null },
+                        { displayText: "Header", fullText: "Header", hoverText: "Header" },
                         { displayText: null, fullText: null, hoverText: null },
                         { displayText: "Instrumental", fullText: "Instrumental", hoverText: "Instrumental" },
                         { displayText: "Snippet", fullText: "Snippet", hoverText: "Snippet" },
@@ -3779,11 +3779,11 @@ chrome.storage.local.get([
 
             if (isGeniusSongClaimButton) {
                 if (mappedButtons.length > 1 && (mappedButtons[1].label === null || mappedButtons[1].fullText === null)) {
-                    mappedButtons[1] = { displayText: "Claim", fullText: "Claim", hoverText: "Claim" };
+                    mappedButtons[1] = { label: "Claim", fullText: "Claim", hoverText: "Claim" };
                 } else if (mappedButtons.length > 0 && (mappedButtons[0].label === null || mappedButtons[0].fullText === null)) {
-                    mappedButtons[0] = { displayText: "Claim", fullText: "Claim", hoverText: "Claim" };
+                    mappedButtons[0] = { label: "Claim", fullText: "Claim", hoverText: "Claim" };
                 } else {
-                    mappedButtons.unshift({ displayText: "Claim", fullText: "Claim", hoverText: "Claim" });
+                    mappedButtons.unshift({ label: "Claim", fullText: "Claim", hoverText: "Claim" });
                 }
             }
 
