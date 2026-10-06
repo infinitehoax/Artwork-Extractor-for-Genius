@@ -13,6 +13,10 @@ chrome.storage.local.get([
     'isGeniusSongLanguageButton',
     'isGeniusSongCleanupButton',
     'isGeniusSongSectionsButtons',
+    'isGeniusSongScribingButton',
+    'geniusSongScribingText',
+    'isGeniusSongFixingButton',
+    'geniusSongFixingText',
     'isGeniusSongClaimButton',
     'geniusSongClaimText',
     'isGeniusSongExpandSectionsButtons',
@@ -42,9 +46,12 @@ chrome.storage.local.get([
     const isGeniusSongLanguageButton = result.isGeniusSongLanguageButton ?? true;
     const isGeniusSongCleanupButton = result.isGeniusSongCleanupButton ?? true;
     const isGeniusSongSectionsButtons = result.isGeniusSongSectionsButtons ?? true;
-    const isGeniusSongClaimButton = result.isGeniusSongClaimButton ?? true;
-    const defaultClaimText = `<b>Scribing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
-    const geniusSongClaimText = result.geniusSongClaimText ?? defaultClaimText;
+    const defaultScribingText = `<b>Scribing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
+    const defaultFixingText = `<b>Fixing - DO NOT EDIT</b>\n<i>They say, "[infinite](https://genius.com/infinitehoax), you keep on evolvin', how you so steady with it?"</i>\n---`;
+    const isGeniusSongScribingButton = result.isGeniusSongScribingButton ?? result.isGeniusSongClaimButton ?? true;
+    const geniusSongScribingText = result.geniusSongScribingText ?? defaultScribingText;
+    const isGeniusSongFixingButton = result.isGeniusSongFixingButton ?? true;
+    const geniusSongFixingText = result.geniusSongFixingText ?? result.geniusSongClaimText ?? defaultFixingText;
     const isGeniusSongExpandSectionsButtons = result.isGeniusSongExpandSectionsButtons ?? false;
     const isGeniusSongAnnotationsButtons = result.isGeniusSongAnnotationsButtons ?? true;
     const isGeniusSongFilterActivity = result.isGeniusSongFilterActivity ?? true;
@@ -2924,18 +2931,17 @@ chrome.storage.local.get([
             }
         }
 
-        function insertClaimHeader() {
+        function insertHeaderTemplate(headerText) {
             const { lyricsTextareaInputTextarea } = getDomElements();
             if (!lyricsTextareaInputTextarea) return;
 
-            const claimText = geniusSongClaimText || defaultClaimText;
             const currentText = lyricsTextareaInputTextarea.value.trim();
 
             lyricsTextareaInputTextarea.focus();
-            if (!currentText.startsWith(claimText)) {
-                lyricsTextareaInputTextarea.value = claimText + (currentText ? "\n\n" + currentText : "");
+            if (!currentText.startsWith(headerText)) {
+                lyricsTextareaInputTextarea.value = headerText + (currentText ? "\n\n" + currentText : "");
                 lyricsTextareaInputTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-                const newPos = claimText.length;
+                const newPos = headerText.length;
                 lyricsTextareaInputTextarea.setSelectionRange(newPos, newPos);
             }
         }
@@ -3006,7 +3012,9 @@ chrome.storage.local.get([
                 Header: () => insertSeoHeader(songData, hoverText, storedLanguage),
                 Translation: () => insertSeoHeader(songData, hoverText, storedLanguage),
                 Snippet: () => insertSeoHeader(songData, hoverText, storedLanguage),
-                Claim: () => insertClaimHeader(),
+                Scribing: () => insertHeaderTemplate(geniusSongScribingText || defaultScribingText),
+                Fixing: () => insertHeaderTemplate(geniusSongFixingText || defaultFixingText),
+                Claim: () => insertHeaderTemplate(geniusSongScribingText || defaultScribingText),
                 Part: () => insertPartHeader(fullText),
                 Verse: () => insertVerseHeader(fullText),
                 default: () => insertTextAtCursor(`[${fullText}]`)
@@ -3300,7 +3308,7 @@ chrome.storage.local.get([
                 },
                 "en": { // English
                     Default: [
-                        { displayText: null, fullText: null, hoverText: null },
+                        { displayText: "Header", fullText: "Header", hoverText: "Header" },
                         { displayText: null, fullText: null, hoverText: null },
                         { displayText: "Instrumental", fullText: "Instrumental", hoverText: "Instrumental" },
                         { displayText: "Snippet", fullText: "Snippet", hoverText: "Snippet" },
@@ -3777,14 +3785,29 @@ chrome.storage.local.get([
                 hoverText: b.hoverText
             }));
 
-            if (isGeniusSongClaimButton) {
-                if (mappedButtons.length > 1 && (mappedButtons[1].label === null || mappedButtons[1].fullText === null)) {
-                    mappedButtons[1] = { displayText: "Claim", fullText: "Claim", hoverText: "Claim" };
-                } else if (mappedButtons.length > 0 && (mappedButtons[0].label === null || mappedButtons[0].fullText === null)) {
-                    mappedButtons[0] = { displayText: "Claim", fullText: "Claim", hoverText: "Claim" };
-                } else {
-                    mappedButtons.unshift({ displayText: "Claim", fullText: "Claim", hoverText: "Claim" });
-                }
+            let customHeaderButtons = [];
+            if (isGeniusSongScribingButton) {
+                customHeaderButtons.push({ label: "Scribing", fullText: "Scribing", hoverText: "Scribing" });
+            }
+            if (isGeniusSongFixingButton) {
+                customHeaderButtons.push({ label: "Fixing", fullText: "Fixing", hoverText: "Fixing" });
+            }
+
+            if (customHeaderButtons.length > 0) {
+                let nullIndices = [];
+                mappedButtons.forEach((b, idx) => {
+                    if (b.label === null || b.fullText === null) {
+                        nullIndices.push(idx);
+                    }
+                });
+
+                customHeaderButtons.forEach((btnObj, i) => {
+                    if (i < nullIndices.length) {
+                        mappedButtons[nullIndices[i]] = btnObj;
+                    } else {
+                        mappedButtons.splice(i, 0, btnObj);
+                    }
+                });
             }
 
             renderButtons(
