@@ -4939,6 +4939,159 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
             }
 
             return calibrationResult;
+        },
+
+        // Parse user-inputted time string (HH:MM:SS or HH:MM:SS.mmm) to an epoch timestamp relative to a base epoch
+        parseActualSaveTimeToEpoch(timeStr, baseEpoch = Date.now()) {
+            if (!timeStr || typeof timeStr !== "string") return null;
+            const trimmed = timeStr.trim();
+            const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
+            if (!match) return null;
+            const hours = parseInt(match[1], 10);
+            const minutes = parseInt(match[2], 10);
+            const seconds = match[3] ? parseInt(match[3], 10) : 0;
+            const millis = match[4] ? parseInt(match[4].padEnd(3, "0"), 10) : 0;
+            if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) return null;
+
+            const ref = new Date(baseEpoch);
+            const candidate = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), hours, minutes, seconds, millis);
+            let candidateEpoch = candidate.getTime();
+
+            // Handle midnight / day boundary roll-over
+            if (candidateEpoch - baseEpoch > 12 * 3600 * 1000) {
+                candidateEpoch -= 24 * 3600 * 1000;
+            } else if (baseEpoch - candidateEpoch > 12 * 3600 * 1000) {
+                candidateEpoch += 24 * 3600 * 1000;
+            }
+            return candidateEpoch;
+        },
+
+        // Compute error and required offset given send time, receive time, and actual registered server time
+        computeSaveDisparity(clientSendEpoch, clientReceiveEpoch, actualSaveEpoch) {
+            const rtt = Math.max(0, clientReceiveEpoch - clientSendEpoch);
+            const oneWayLatency = Math.round(rtt / 2);
+            // Expected arrival in client-clock reference:
+            const expectedClientArrival = clientSendEpoch + oneWayLatency;
+            // Disparity between actual registered save time vs client midpoint
+            const deltaMs = actualSaveEpoch - expectedClientArrival;
+            return {
+                rtt,
+                oneWayLatency,
+                expectedClientArrival,
+                deltaMs
+            };
+        },
+
+        // Calculate average metrics and recommended manual offset across multiple calibration runs
+        calculateCalibrationAverages(runs) {
+            const completedRuns = (runs || []).filter(r => r && r.success && typeof r.deltaMs === "number");
+            if (completedRuns.length === 0) {
+                return {
+                    count: 0,
+                    avgRtt: 0,
+                    avgOneWayLatency: 0,
+                    avgDeltaMs: 0,
+                    recommendedManualOffsetMs: 0
+                };
+            }
+            const totalRtt = completedRuns.reduce((sum, r) => sum + r.rtt, 0);
+            const totalOneWay = completedRuns.reduce((sum, r) => sum + r.oneWayLatency, 0);
+            const totalDelta = completedRuns.reduce((sum, r) => sum + r.deltaMs, 0);
+
+            const avgRtt = Math.round(totalRtt / completedRuns.length);
+            const avgOneWayLatency = Math.round(totalOneWay / completedRuns.length);
+            const avgDeltaMs = Math.round(totalDelta / completedRuns.length);
+            // If actual save arrived late by deltaMs relative to target/send,
+            // we need to fire earlier by deltaMs (recommended manual offset: -avgDeltaMs)
+            const recommendedManualOffsetMs = -avgDeltaMs;
+
+            return {
+                count: completedRuns.length,
+                avgRtt,
+                avgOneWayLatency,
+                avgDeltaMs,
+                recommendedManualOffsetMs
+            };
+        },
+
+        // Execute a live sample lyrics save to a test song page
+        async executeSampleLyricsSave(testSongId, sampleText = "[Verse]\nSample lyrics test calibration") {
+            if (!testSongId) throw new Error("A valid Genius Song ID or URL is required for live calibration.");
+            const targetId = String(testSongId).replace(/.*?(\d+)[^\d]*$/, "$1");
+
+            // 1. Refresh concurrency metadata and referents
+            const metaRes = await fetch(`https://genius.com/api/songs/${targetId}?text_format=html`, { credentials: "include" });
+            if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status} fetching song metadata`);
+            const metaJson = await metaRes.json();
+            const latestTimestamp = metaJson?.response?.song?.lyrics_updated_at;
+
+            let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            if (!csrfToken && typeof getCsrfToken === "function") csrfToken = getCsrfToken();
+            if (!csrfToken && typeof ensureCsrfToken === "function") csrfToken = await ensureCsrfToken();
+
+            const songData = metaJson?.response?.song;
+            const referentsMap = (songData?.referents || []).reduce((acc, ref) => {
+                if (ref && ref.id) acc[ref.id] = ref;
+                return acc;
+            }, {});
+
+            let lyricHtml = "";
+            if (typeof markdownToGeniusHtml === "function") {
+                lyricHtml = markdownToGeniusHtml(sampleText, referentsMap);
+            } else {
+                lyricHtml = `<p>${sampleText.replace(/\n/g, "<br>")}</p>`;
+            }
+
+            const payload = {
+                text_format: "html,markdown,preview",
+                react: true,
+                auto_resync: false,
+                lyrics: {
+                    body: {
+                        html: lyricHtml
+                    }
+                },
+                client_timestamps: {
+                    updated_by_human_at: latestTimestamp,
+                    lyrics_updated_at: latestTimestamp
+                }
+            };
+
+            const clientSendEpoch = Date.now();
+            const res = await fetch(`https://genius.com/api/songs/${targetId}/lyrics`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": csrfToken
+                },
+                credentials: "include",
+                body: JSON.stringify(payload)
+            });
+
+            const clientReceiveEpoch = Date.now();
+            const rtt = clientReceiveEpoch - clientSendEpoch;
+            const serverDateHeader = res.headers.get("date");
+            const serverResponseEpoch = serverDateHeader ? Date.parse(serverDateHeader) : null;
+
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`HTTP ${res.status}: ${errText}`);
+            }
+
+            const resJson = await res.json();
+            const oneWayLatency = Math.round(rtt / 2);
+
+            return {
+                success: true,
+                songId: targetId,
+                clientSendEpoch,
+                clientReceiveEpoch,
+                rtt,
+                oneWayLatency,
+                serverDateHeader,
+                serverResponseEpoch,
+                resJson
+            };
         }
     };
 
@@ -5240,7 +5393,7 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                 backgroundColor: "#fff",
                 borderRadius: "12px",
                 padding: "1.5rem",
-                width: "520px",
+                width: "600px",
                 maxWidth: "94vw",
                 maxHeight: "90vh",
                 overflowY: "auto",
@@ -5384,6 +5537,334 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
             }
             renderResults(telemetry.latestCalibration);
             modal.appendChild(resultsCard);
+
+            // --- Live Sample Lyrics Calibration Section ---
+            const liveCalSection = document.createElement("div");
+            Object.assign(liveCalSection.style, {
+                backgroundColor: "#f8fafc",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                padding: "12px 14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px"
+            });
+
+            const liveCalTitle = document.createElement("div");
+            liveCalTitle.innerHTML = '<b>🔬 Live Lyric Page Benchmark & Calibration</b><br><small style="color:#64748b;">Save sample lyrics to a real page, record the exact server arrival time (HH:MM:SS), and average multiple runs for pinpoint sub-second accuracy.</small>';
+            liveCalTitle.style.fontSize = "0.85rem";
+            liveCalSection.appendChild(liveCalTitle);
+
+            const liveInputsGrid = document.createElement("div");
+            Object.assign(liveInputsGrid.style, {
+                display: "grid",
+                gridTemplateColumns: "1fr 100px",
+                gap: "8px"
+            });
+
+            const targetSongDiv = document.createElement("div");
+            const targetSongLabel = document.createElement("label");
+            targetSongLabel.textContent = "Test Song ID / Page URL:";
+            Object.assign(targetSongLabel.style, {
+                fontSize: "0.75rem",
+                fontWeight: "600",
+                color: "#475569",
+                display: "block",
+                marginBottom: "2px"
+            });
+            const targetSongInput = document.createElement("input");
+            targetSongInput.type = "text";
+            targetSongInput.value = songId || "";
+            targetSongInput.placeholder = "e.g. 12345 or song URL";
+            Object.assign(targetSongInput.style, {
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "4px 8px",
+                borderRadius: "4px",
+                border: "1px solid #cbd5e1",
+                fontSize: "0.8rem"
+            });
+            targetSongDiv.append(targetSongLabel, targetSongInput);
+
+            const runsCountDiv = document.createElement("div");
+            const runsCountLabel = document.createElement("label");
+            runsCountLabel.textContent = "Runs count:";
+            Object.assign(runsCountLabel.style, {
+                fontSize: "0.75rem",
+                fontWeight: "600",
+                color: "#475569",
+                display: "block",
+                marginBottom: "2px"
+            });
+            const runsCountInput = document.createElement("input");
+            runsCountInput.type = "number";
+            runsCountInput.min = "1";
+            runsCountInput.max = "10";
+            runsCountInput.value = "3";
+            Object.assign(runsCountInput.style, {
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "4px 8px",
+                borderRadius: "4px",
+                border: "1px solid #cbd5e1",
+                fontSize: "0.8rem",
+                textAlign: "center"
+            });
+            runsCountDiv.append(runsCountLabel, runsCountInput);
+
+            liveInputsGrid.append(targetSongDiv, runsCountDiv);
+            liveCalSection.appendChild(liveInputsGrid);
+
+            const sampleLyricsDiv = document.createElement("div");
+            const sampleLyricsLabel = document.createElement("label");
+            sampleLyricsLabel.textContent = "Sample Lyrics Template:";
+            Object.assign(sampleLyricsLabel.style, {
+                fontSize: "0.75rem",
+                fontWeight: "600",
+                color: "#475569",
+                display: "block",
+                marginBottom: "2px"
+            });
+            const sampleLyricsArea = document.createElement("textarea");
+            sampleLyricsArea.rows = 2;
+            sampleLyricsArea.value = "[Verse]\nSample test calibration line";
+            Object.assign(sampleLyricsArea.style, {
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "4px 8px",
+                borderRadius: "4px",
+                border: "1px solid #cbd5e1",
+                fontSize: "0.75rem",
+                resize: "vertical"
+            });
+            sampleLyricsDiv.append(sampleLyricsLabel, sampleLyricsArea);
+            liveCalSection.appendChild(sampleLyricsDiv);
+
+            const runsContainer = document.createElement("div");
+            Object.assign(runsContainer.style, {
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                maxHeight: "180px",
+                overflowY: "auto",
+                border: "1px solid #e2e8f0",
+                borderRadius: "6px",
+                padding: "6px",
+                backgroundColor: "#fff"
+            });
+            runsContainer.innerHTML = '<div style="font-size:0.75rem; color:#94a3b8; text-align:center;">Click "Send Sample Lyrics Run" to begin calibration.</div>';
+            liveCalSection.appendChild(runsContainer);
+
+            const runsSummaryBox = document.createElement("div");
+            Object.assign(runsSummaryBox.style, {
+                display: "none",
+                backgroundColor: "#ecfdf5",
+                border: "1px solid #a7f3d0",
+                borderRadius: "6px",
+                padding: "8px 10px",
+                fontSize: "0.8rem",
+                color: "#065f46"
+            });
+            liveCalSection.appendChild(runsSummaryBox);
+
+            const liveBtnsRow = document.createElement("div");
+            Object.assign(liveBtnsRow.style, {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+            });
+
+            const sendSampleBtn = document.createElement("button");
+            sendSampleBtn.type = "button";
+            sendSampleBtn.textContent = "Send Sample Lyrics Run";
+            Object.assign(sendSampleBtn.style, {
+                padding: "5px 12px",
+                backgroundColor: "#0284c7",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontSize: "0.8rem",
+                fontWeight: "600",
+                cursor: "pointer"
+            });
+
+            const applyOffsetBtn = document.createElement("button");
+            applyOffsetBtn.type = "button";
+            applyOffsetBtn.textContent = "Apply Calibrated Offset";
+            applyOffsetBtn.style.display = "none";
+            Object.assign(applyOffsetBtn.style, {
+                padding: "5px 12px",
+                backgroundColor: "#057a55",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontSize: "0.8rem",
+                fontWeight: "600",
+                cursor: "pointer"
+            });
+
+            liveBtnsRow.append(sendSampleBtn, applyOffsetBtn);
+            liveCalSection.appendChild(liveBtnsRow);
+            modal.appendChild(liveCalSection);
+
+            const liveRuns = [];
+
+            function updateLiveSummary() {
+                const averages = GeniusScheduledSaveTelemetry.calculateCalibrationAverages(liveRuns);
+                if (averages.count === 0) {
+                    runsSummaryBox.style.display = "none";
+                    applyOffsetBtn.style.display = "none";
+                    return;
+                }
+                const sign = averages.recommendedManualOffsetMs >= 0 ? "+" : "";
+                runsSummaryBox.style.display = "block";
+                runsSummaryBox.innerHTML = `
+                    <div style="font-weight:700;">📊 Calibration Summary across ${averages.count} run${averages.count > 1 ? "s" : ""}:</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:4px;">
+                        <div>⚡ <b>Avg RTT:</b> ${averages.avgRtt} ms</div>
+                        <div>🚀 <b>Avg 1-way Lag:</b> ${averages.avgOneWayLatency} ms</div>
+                        <div>⏱ <b>Avg Server Delta:</b> ${averages.avgDeltaMs >= 0 ? "+" : ""}${averages.avgDeltaMs} ms</div>
+                        <div>🎯 <b>Recommended Offset:</b> <b>${sign}${averages.recommendedManualOffsetMs} ms</b></div>
+                    </div>
+                `;
+                applyOffsetBtn.style.display = "inline-block";
+                applyOffsetBtn.onclick = () => {
+                    manualInput.value = averages.recommendedManualOffsetMs;
+                    manualInput.dispatchEvent(new Event("input"));
+                    showToast(`Applied calibrated offset: ${sign}${averages.recommendedManualOffsetMs}ms`);
+                };
+            }
+
+            function renderLiveRuns() {
+                if (liveRuns.length === 0) {
+                    runsContainer.innerHTML = '<div style="font-size:0.75rem; color:#94a3b8; text-align:center;">Click "Send Sample Lyrics Run" to begin calibration.</div>';
+                    return;
+                }
+                runsContainer.innerHTML = "";
+                liveRuns.forEach((run, idx) => {
+                    const row = document.createElement("div");
+                    Object.assign(row.style, {
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "6px",
+                        padding: "6px 8px",
+                        backgroundColor: "#f8fafc",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "4px"
+                    });
+
+                    const sendTimeStr = new Date(run.clientSendEpoch).toTimeString().split(" ")[0] + "." + String(run.clientSendEpoch % 1000).padStart(3, "0");
+                    const recvTimeStr = new Date(run.clientReceiveEpoch).toTimeString().split(" ")[0] + "." + String(run.clientReceiveEpoch % 1000).padStart(3, "0");
+
+                    const top = document.createElement("div");
+                    Object.assign(top.style, {
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: "0.75rem",
+                        fontWeight: "600",
+                        color: "#334155"
+                    });
+                    top.innerHTML = `<span>Run #${idx + 1} (${run.rtt}ms RTT, lag: ${run.oneWayLatency}ms)</span><span style="color:#64748b;">Sent: ${sendTimeStr}</span>`;
+                    row.appendChild(top);
+
+                    const inputRow = document.createElement("div");
+                    Object.assign(inputRow.style, {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "0.75rem"
+                    });
+
+                    const label = document.createElement("span");
+                    label.textContent = "Actual saved time (HH:MM:SS):";
+                    label.style.color = "#475569";
+
+                    const timeInput = document.createElement("input");
+                    timeInput.type = "text";
+                    timeInput.placeholder = "HH:MM:SS or .mmm";
+                    timeInput.value = run.inputtedTimeStr || (run.serverDateHeader ? new Date(run.serverResponseEpoch).toTimeString().split(" ")[0] : "");
+                    Object.assign(timeInput.style, {
+                        width: "110px",
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "0.75rem"
+                    });
+
+                    const resultSpan = document.createElement("span");
+                    resultSpan.style.fontWeight = "bold";
+                    resultSpan.style.fontSize = "0.75rem";
+
+                    function recalculateRun() {
+                        const val = timeInput.value.trim();
+                        run.inputtedTimeStr = val;
+                        const parsedEpoch = GeniusScheduledSaveTelemetry.parseActualSaveTimeToEpoch(val, run.clientSendEpoch);
+                        if (parsedEpoch !== null) {
+                            run.actualSaveEpoch = parsedEpoch;
+                            const disparity = GeniusScheduledSaveTelemetry.computeSaveDisparity(run.clientSendEpoch, run.clientReceiveEpoch, parsedEpoch);
+                            run.deltaMs = disparity.deltaMs;
+                            const diffSign = run.deltaMs >= 0 ? "+" : "";
+                            const diffColor = Math.abs(run.deltaMs) < 200 ? "#057a55" : (Math.abs(run.deltaMs) < 600 ? "#d97706" : "#e02424");
+                            resultSpan.textContent = `Δ: ${diffSign}${run.deltaMs}ms`;
+                            resultSpan.style.color = diffColor;
+                        } else {
+                            run.deltaMs = null;
+                            resultSpan.textContent = "Invalid time";
+                            resultSpan.style.color = "#94a3b8";
+                        }
+                        updateLiveSummary();
+                    }
+
+                    timeInput.addEventListener("input", recalculateRun);
+                    recalculateRun();
+
+                    inputRow.append(label, timeInput, resultSpan);
+                    row.appendChild(inputRow);
+                    runsContainer.appendChild(row);
+                });
+            }
+
+            sendSampleBtn.onclick = async () => {
+                const targetSongVal = targetSongInput.value.trim();
+                if (!targetSongVal) {
+                    alert("Please provide a valid Test Song ID or URL.");
+                    return;
+                }
+                const maxRuns = parseInt(runsCountInput.value || "1", 10) || 1;
+                if (liveRuns.length >= maxRuns) {
+                    if (!confirm(`You have already completed ${liveRuns.length} run(s). Reset and start a new sequence?`)) {
+                        return;
+                    }
+                    liveRuns.length = 0;
+                    renderLiveRuns();
+                    updateLiveSummary();
+                }
+
+                sendSampleBtn.disabled = true;
+                sendSampleBtn.textContent = `Sending Run #${liveRuns.length + 1}...`;
+                sendSampleBtn.style.opacity = "0.6";
+
+                try {
+                    const currentIdx = liveRuns.length + 1;
+                    const sampleText = `${sampleLyricsArea.value.trim()}\n[Run #${currentIdx} - ${Date.now()}]`;
+                    const result = await GeniusScheduledSaveTelemetry.executeSampleLyricsSave(targetSongVal, sampleText);
+                    liveRuns.push({
+                        ...result,
+                        inputtedTimeStr: ""
+                    });
+                    renderLiveRuns();
+                    updateLiveSummary();
+                    showToast(`✓ Sample lyrics sent for Run #${currentIdx}! Check the song page and enter the saved time.`);
+                } catch (err) {
+                    console.error("Live calibration run failed:", err);
+                    alert(`Failed to save sample lyrics: ${err.message}`);
+                } finally {
+                    sendSampleBtn.disabled = false;
+                    sendSampleBtn.textContent = "Send Sample Lyrics Run";
+                    sendSampleBtn.style.opacity = "1";
+                }
+            };
+            // --- End Live Sample Lyrics Calibration Section ---
 
             const historyTitle = document.createElement("div");
             historyTitle.innerHTML = "<b>Recent Scheduled Save Telemetry Feedback:</b>";
