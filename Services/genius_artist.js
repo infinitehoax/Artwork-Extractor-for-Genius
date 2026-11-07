@@ -2381,6 +2381,65 @@ OR line-separated URLs/IDs`;
         let cachedSongs = null;
         let cachedAlbums = null;
         let items = [];
+        let entriesLoaded = false;
+        let metadataToggleActive = false;
+
+        function injectMetadataToggle() {
+            const sortContainer = document.querySelector('div[class^="ListSection-desktop__Sort-"]');
+            if (!sortContainer) return;
+
+            if (document.getElementById('metadataToggleSwitch')) return;
+
+            const wrapper = document.createElement("label");
+            wrapper.id = "metadataToggleSwitch";
+            wrapper.style.display = "flex";
+            wrapper.style.alignItems = "center";
+            wrapper.style.gap = "0.35rem";
+            wrapper.style.cursor = "pointer";
+            wrapper.style.marginLeft = "auto";
+            wrapper.style.marginRight = "1rem";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+
+            Object.assign(checkbox.style, {
+                appearance: "none",
+                border: "1px solid #000",
+                backgroundColor: "transparent",
+                width: "0.75rem",
+                height: "0.75rem",
+                cursor: "pointer"
+            });
+
+            const checkSvg =
+                "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23fff' d='m15.5 4.9-7.9 10-5-5L4 8.3l3.4 3.4L14 3.6 15.5 5Z'/%3E%3C/svg%3E\")";
+
+            const updateCheckboxStyle = () => {
+                if (checkbox.checked) {
+                    checkbox.style.backgroundColor = "#000";
+                    checkbox.style.backgroundImage = checkSvg;
+                } else {
+                    checkbox.style.backgroundColor = "transparent";
+                    checkbox.style.backgroundImage = "none";
+                }
+            };
+
+            checkbox.addEventListener("change", () => {
+                metadataToggleActive = checkbox.checked;
+                updateCheckboxStyle();
+            });
+
+            const label = document.createElement("span");
+            label.textContent = "Pull Song Data";
+            label.style.fontSize = "0.75rem";
+
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(label);
+
+            sortContainer.parentNode.insertBefore(wrapper, sortContainer);
+        }
+
+        injectMetadataToggle();
 
         async function fetchAll(artistId, type) {
             if (typeof confirm === 'function' && !confirm(`Fetch all ${type} from multiple pages for artist #${artistId}?`)) {
@@ -2429,9 +2488,33 @@ OR line-separated URLs/IDs`;
             return items;
         }
 
-        (async () => {
-            await checkAllEntriesAndFetchFunctions(artistId);
-        })();
+        function injectPullDataButton() {
+            const sortContainer = document.querySelector('div[class^="ListSection-desktop__Sort-"]');
+            if (!sortContainer) return;
+
+            if (document.getElementById('pullDataButton')) return;
+
+            const smallButton = document.querySelector('[class^="SmallButton__Container-"]');
+            if (!smallButton) return;
+
+            const triggerBtn = document.createElement("button");
+            triggerBtn.id = "pullDataButton";
+            triggerBtn.type = "button";
+            triggerBtn.className = smallButton.className;
+            triggerBtn.textContent = "Pull Data";
+            triggerBtn.style.marginRight = "1rem";
+
+            sortContainer.parentNode.insertBefore(triggerBtn, sortContainer);
+
+            triggerBtn.addEventListener("click", async () => {
+                triggerBtn.textContent = "Loading…";
+                await checkAllEntriesAndFetchFunctions(artistId);
+                entriesLoaded = true;
+                triggerBtn.style.display = "none";
+            });
+        }
+
+        injectPullDataButton();
 
 
         async function checkCoverImage() {
@@ -2577,6 +2660,8 @@ OR line-separated URLs/IDs`;
 
 
         document.addEventListener('click', async () => {
+            if (!entriesLoaded) return;
+
             if ((isAllSongs && isGeniusArtistAllSongsAlbumsPage) || (isAllAlbums && isGeniusArtistAllSongsAlbumsPage) && isGeniusArtistAllSongsAlbumsPage) {
                 updates = await checkCoverImage();
             }
@@ -2588,7 +2673,7 @@ OR line-separated URLs/IDs`;
                 if (isGeniusArtistAllSongsAlbumsPageZwsp) checkListItemsForZeroWidthSpace();
             }
 
-            if (isAllSongs && isGeniusArtistAllSongsAlbumsPageMetadata) {
+            if (metadataToggleActive && isAllSongs && isGeniusArtistAllSongsAlbumsPageMetadata) {
                 await checkMetadata();
             }
         });

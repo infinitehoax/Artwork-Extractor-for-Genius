@@ -6,6 +6,7 @@ chrome.storage.local.get([
     'isGeniusSongSongId',
     'isGeniusSongCheckIndex',
     'isGeniusSongFollowButton',
+    'isGeniusSongRecreateButton',
     'isGeniusSongTranslationButton',
     'isGeniusSongShellyButton',
     'isGeniusSongCleanupMetadataButton',
@@ -40,6 +41,7 @@ chrome.storage.local.get([
     const isGeniusSongSongId = result.isGeniusSongSongId ?? false;
     const isGeniusSongCheckIndex = result.isGeniusSongCheckIndex ?? false;
     const isGeniusSongFollowButton = result.isGeniusSongFollowButton ?? true;
+    const isGeniusSongRecreateButton = result.isGeniusSongRecreateButton ?? true;
     const isGeniusSongTranslationButton = result.isGeniusSongTranslationButton ?? true;
     const isGeniusSongShellyButton = result.isGeniusSongShellyButton ?? true;
     const isGeniusSongCleanupMetadataButton = result.isGeniusSongCleanupMetadataButton ?? true;
@@ -114,6 +116,7 @@ chrome.storage.local.get([
 
         if (isGeniusSongFollowButton) addFollowButton();
         if (isGeniusSongAdvancedJson) addAdvancedJsonButton(songData);
+        if (isGeniusSongRecreateButton) addRecreateButton(songData);
         if (isGeniusSongTranslationButton) addTranslationButton(songData);
         if (isGeniusSongShellyButton) addShellyButton(songData);
 
@@ -985,6 +988,622 @@ chrome.storage.local.get([
         li.appendChild(btn);
         list.appendChild(li);
     }
+
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////                               RECREATE BUTTON                                  //////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    function addRecreateButton(songIdOrData, songTitleRaw, primaryArtistsRaw, featuredArtistsRaw, writerArtistsRaw, producerArtistsRaw, customPerformancesRaw, artists, primaryTagRaw, secondaryTagRaw, tags, songAlbumsRaw, albums, youtubeUrl, youtubeStart, soundcloudUrl, customSongArtImageUrl, releaseDateComponents, songLanguageRaw, recordedAtRaw, albumAppearances) {
+        console.log("Run function addRecreateButton()");
+
+        const { adminSpan } = getDomElements();
+        if (!adminSpan) return;
+
+        const dropdownContainer = adminSpan.closest('[class^="Dropdown__Container-"]');
+        if (!dropdownContainer) return;
+
+        const list = dropdownContainer.querySelector('[class^="StickyToolbarDropdown__DropdownItems-"]');
+        if (!list) return;
+
+        if (document.getElementById("recreate-btn")) return;
+
+        const existingButton = list.querySelector("button");
+        const existingLi = list.querySelector("li");
+        if (!existingButton || !existingLi) return;
+
+        const li = document.createElement("li");
+        li.className = existingLi.className;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = "recreate-btn";
+        btn.textContent = "Recreate Song";
+        btn.className = existingButton.className;
+
+        btn.addEventListener("click", async () => {
+            let songId = songIdOrData;
+            let songTitle = [];
+            let primaryArtists = [];
+            let featuredArtists = [];
+            let writerArtists = [];
+            let producerArtists = [];
+            let additionalCredits = [];
+            let primaryTags = [];
+            let secondaryTags = [];
+            let songAlbums = [];
+            let youtube = [];
+            let soundcloud = [];
+            let customSongArtImage = [];
+            let releaseDate = [];
+            let songLanguage = [];
+            let recordedAt = [];
+            let appearances = albumAppearances;
+
+            if (typeof songIdOrData === 'object' && songIdOrData !== null) {
+                const song = songIdOrData;
+                songId = song.id;
+                songTitle = song.title ? [{ name: song.title }] : [];
+                primaryArtists = song.primary_artists ? song.primary_artists.map(a => ({ id: a.id, name: a.name })) : [];
+                featuredArtists = song.featured_artists ? song.featured_artists.map(a => ({ id: a.id, name: a.name })) : [];
+                writerArtists = song.writer_artists ? song.writer_artists.map(a => ({ id: a.id, name: a.name })) : [];
+                producerArtists = song.producer_artists ? song.producer_artists.map(a => ({ id: a.id, name: a.name })) : [];
+                additionalCredits = (song.custom_performances || []).map(entry => ({
+                    role: entry.label,
+                    artists: (entry.artists || []).map(a => ({ id: a.id, name: a.name }))
+                }));
+                primaryTags = song.primary_tag ? [{ id: song.primary_tag.id, name: song.primary_tag.name }] : [];
+                secondaryTags = (song.tags || []).map(t => ({ id: t.id, name: t.name }));
+                songAlbums = (song.albums || []).map(a => ({ id: a.id, name: a.name }));
+                youtube = (song.youtube_url || song.youtube_start) ? [{ url: song.youtube_url || null, start: song.youtube_start || null }] : [];
+                soundcloud = song.soundcloud_url ? [{ url: song.soundcloud_url }] : [];
+                customSongArtImage = song.custom_song_art_image_url ? [{ url: song.custom_song_art_image_url }] : [];
+                releaseDate = song.release_date_components ? [{ day: song.release_date_components.day, month: song.release_date_components.month, year: song.release_date_components.year }] : [];
+                songLanguage = song.language ? [{ name: song.language }] : [];
+                recordedAt = song.recorded_at ? [{ name: song.recorded_at }] : [];
+                appearances = song.album_appearances || [];
+            } else {
+                songTitle = songTitleRaw ? [{ name: songTitleRaw }] : [];
+                primaryArtists = (primaryArtistsRaw || []).map(id => artists[id]).filter(Boolean);
+                featuredArtists = (featuredArtistsRaw || []).map(id => artists[id]).filter(Boolean);
+                writerArtists = (writerArtistsRaw || []).map(id => artists[id]).filter(Boolean);
+                producerArtists = (producerArtistsRaw || []).map(id => artists[id]).filter(Boolean);
+                additionalCredits = (customPerformancesRaw || []).map(entry => ({
+                    role: entry.label,
+                    artists: (entry.artists || []).map(id => artists[id]).filter(Boolean)
+                }));
+                primaryTags = primaryTagRaw ? [tags[primaryTagRaw]].filter(Boolean) : [];
+                secondaryTags = (secondaryTagRaw || []).map(id => tags[id]).filter(Boolean);
+                songAlbums = (songAlbumsRaw || []).map(id => albums[id]).filter(Boolean);
+                youtube = (youtubeUrl || youtubeStart) ? [{ url: youtubeUrl || null, start: youtubeStart || null }] : [];
+                soundcloud = soundcloudUrl ? [{ url: soundcloudUrl }] : [];
+                customSongArtImage = customSongArtImageUrl ? [{ url: customSongArtImageUrl }] : [];
+                releaseDate = releaseDateComponents ? [{ day: releaseDateComponents.day, month: releaseDateComponents.month, year: releaseDateComponents.year }] : [];
+                songLanguage = songLanguageRaw ? [{ name: songLanguageRaw }] : [];
+                recordedAt = recordedAtRaw ? [{ name: recordedAtRaw }] : [];
+            }
+
+            openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, writerArtists, producerArtists, additionalCredits, primaryTags, secondaryTags, songAlbums, youtube, soundcloud, customSongArtImage, releaseDate, songLanguage, recordedAt, appearances);
+        });
+
+        li.appendChild(btn);
+        list.appendChild(li);
+    }
+
+function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, writerArtists, producerArtists, additionalCredits, primaryTags, secondaryTags, songAlbums, youtube, soundcloud, customSongArtImage, releaseDate, songLanguage, recordedAt, albumAppearances) {
+        console.log(songId, songTitle, primaryArtists, featuredArtists, writerArtists, producerArtists, additionalCredits, primaryTags, secondaryTags, songAlbums, youtube, soundcloud, customSongArtImage, releaseDate, songLanguage, recordedAt, albumAppearances);
+
+        const { editmetadatabutonSmallbutton } = getDomElements();
+        if (document.getElementById("create-recreate-modal")) return;
+
+        document.body.style.overflow = "hidden";
+
+        const tagStyle = {
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            background: "#eaeaea",
+            padding: "4px 8px",
+            borderRadius: "6px",
+            fontSize: "0.8em",
+            marginRight: "6px",
+            marginBottom: "6px"
+        };
+
+        const tagRemoveStyle = {
+            cursor: "pointer",
+            fontWeight: "bold",
+            color: "#444"
+        };
+
+        const overlay = document.createElement("div");
+        overlay.id = "create-recreate-modal";
+        Object.assign(overlay.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: "9999"
+        });
+
+        const modal = document.createElement("div");
+        Object.assign(modal.style, {
+            background: "#fff",
+            padding: "20px",
+            borderRadius: "8px",
+            width: "900px",
+            maxHeight: "85vh",
+            overflowY: "auto",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "18px"
+        });
+
+        const table = document.createElement("div");
+        Object.assign(table.style, {
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            gap: "12px",
+            overflowY: "auto",
+            maxHeight: "75vh"
+        });
+
+        function removeValueFromArray(array, value) {
+            const index = array.indexOf(value);
+            if (index !== -1) array.splice(index, 1);
+        }
+
+
+        function buildTagRow(labelText, values) {
+            const row = document.createElement("div");
+            Object.assign(row.style, {
+                display: "grid",
+                gridTemplateColumns: "225px 1fr",
+                alignItems: "flex-start",
+                gap: "16px"
+            });
+
+            const lbl = document.createElement("div");
+            lbl.textContent = labelText;
+            Object.assign(lbl.style, {
+                fontWeight: "600",
+                paddingTop: "6px"
+            });
+
+            const tagContainer = document.createElement("div");
+            Object.assign(tagContainer.style, {
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px"
+            });
+
+            function addTag(value, labelText) {
+                const tag = document.createElement("div");
+                Object.assign(tag.style, tagStyle);
+
+                const text = document.createElement("span");
+
+                let display = "";
+                if (value && typeof value === "object") {
+                    if (value.name) display = value.name;
+                    else if (value.id) display = value.id;
+                    else if (value.url) display = value.url;
+                    else if (typeof value.day === "number" && typeof value.month === "number" && typeof value.year === "number") {
+                        display = `${value.year}-${String(value.month).padStart(2, "0")}-${String(value.day).padStart(2, "0")}`;
+                    } else {
+                        display = JSON.stringify(value);
+                    }
+                } else {
+                    display = value;
+                }
+
+                text.textContent = display;
+
+                const protectedLabels = ["Primary Tag", "Song Title", "Primary Artists"];
+                const allowRemove = !protectedLabels.includes(labelText);
+
+                if (allowRemove) {
+                    const remove = document.createElement("span");
+                    remove.textContent = "×";
+                    Object.assign(remove.style, tagRemoveStyle);
+
+                    remove.addEventListener("click", () => {
+                        tag.remove();
+                        removeValueFromArray(values, value);
+                    });
+
+                    tag.appendChild(remove);
+                }
+
+                tag.insertBefore(text, tag.firstChild);
+                tagContainer.appendChild(tag);
+            }
+
+
+            values.forEach(v => addTag(v, labelText));
+
+            row.appendChild(lbl);
+            row.appendChild(tagContainer);
+
+            return { row, tagContainer };
+        }
+
+        const { row: titleRow, tagContainer: titleTags } = buildTagRow("Song Title", songTitle || []);
+        const { row: primaryArtistRow, tagContainer: primaryArtistTags } = buildTagRow("Primary Artists", primaryArtists || []);
+        const { row: featuredRow, tagContainer: featuredTags } = buildTagRow("Featured Artists", featuredArtists || []);
+        const { row: writerRow, tagContainer: writerTags } = buildTagRow("Writers", writerArtists || []);
+        const { row: producerRow, tagContainer: producerTags } = buildTagRow("Producers", producerArtists || []);
+        const { row: youtubeRow, tagContainer: youtubeTags } = buildTagRow("YouTube URL", youtube || []);
+        const { row: soundcloudRow, tagContainer: soundcloudTags } = buildTagRow("SoundCloud URL", soundcloud || []);
+        const { row: artRow, tagContainer: artTags } = buildTagRow("Song Art", customSongArtImage || []);
+        const { row: albumsRow, tagContainer: albumsTags } = buildTagRow("Albums", songAlbums || []);
+        const { row: primaryTagRow, tagContainer: primaryTagTags } = buildTagRow("Primary Tag", primaryTags || []);
+        const { row: secondaryTagRow, tagContainer: tagsTags } = buildTagRow("Tags", secondaryTags || []);
+        const { row: releaseRow, tagContainer: releaseTags } = buildTagRow("Release Date", releaseDate || []);
+        const { row: languageRow, tagContainer: languageTags } = buildTagRow("Language", songLanguage || []);
+        const { row: recordedRow, tagContainer: recordedTags } = buildTagRow("Recorded At", recordedAt || []);
+
+        const additionalRow = document.createElement("div");
+        Object.assign(additionalRow.style, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px"
+        });
+
+        const headerRow = document.createElement("div");
+        Object.assign(headerRow.style, {
+            display: "grid",
+            gridTemplateColumns: "225px 1fr",
+            alignItems: "flex-start",
+            gap: "16px"
+        });
+
+        const headerLeft = document.createElement("div");
+        headerLeft.textContent = "Additional Credits";
+        Object.assign(headerLeft.style, {
+            fontWeight: "600",
+            paddingTop: "6px"
+        });
+
+        const headerRight = document.createElement("div");
+
+        headerRow.appendChild(headerLeft);
+        headerRow.appendChild(headerRight);
+        additionalRow.appendChild(headerRow);
+
+        additionalCredits.forEach(entry => {
+            const lineRow = document.createElement("div");
+            Object.assign(lineRow.style, {
+                display: "grid",
+                gridTemplateColumns: "225px 1fr",
+                alignItems: "flex-start",
+                gap: "16px"
+            });
+
+            const roleLeft = document.createElement("div");
+            roleLeft.textContent = `– ${entry.role}`;
+            Object.assign(roleLeft.style, {
+                fontWeight: "400"
+            });
+
+            const tagContainer = document.createElement("div");
+            Object.assign(tagContainer.style, {
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px"
+            });
+
+            entry.artists.forEach(artist => {
+                const tag = document.createElement("div");
+                Object.assign(tag.style, tagStyle);
+
+                const text = document.createElement("span");
+                text.textContent = artist.name;
+
+                const remove = document.createElement("span");
+                remove.textContent = "×";
+                Object.assign(remove.style, tagRemoveStyle);
+
+                remove.addEventListener("click", () => {
+                    tag.remove();
+                    removeValueFromArray(entry.artists, artist);
+                });
+
+                tag.appendChild(text);
+                tag.appendChild(remove);
+                tagContainer.appendChild(tag);
+            });
+
+            lineRow.appendChild(roleLeft);
+            lineRow.appendChild(tagContainer);
+            additionalRow.appendChild(lineRow);
+        });
+
+        function appendIfNotEmpty(container, row, values) {
+            if (Array.isArray(values)) {
+                if (values.length > 0) container.appendChild(row);
+            } else if (values) {
+                container.appendChild(row);
+            }
+        }
+
+        appendIfNotEmpty(table, titleRow, [songTitle]);
+        appendIfNotEmpty(table, primaryArtistRow, primaryArtists);
+        appendIfNotEmpty(table, featuredRow, featuredArtists);
+        appendIfNotEmpty(table, writerRow, writerArtists);
+        appendIfNotEmpty(table, producerRow, producerArtists);
+        appendIfNotEmpty(table, additionalRow, additionalCredits);
+        appendIfNotEmpty(table, youtubeRow, youtube);
+        appendIfNotEmpty(table, soundcloudRow, soundcloud);
+        appendIfNotEmpty(table, artRow, customSongArtImage);
+        appendIfNotEmpty(table, albumsRow, songAlbums);
+        appendIfNotEmpty(table, primaryTagRow, primaryTags);
+        appendIfNotEmpty(table, secondaryTagRow, secondaryTags);
+        appendIfNotEmpty(table, releaseRow, releaseDate);
+        appendIfNotEmpty(table, languageRow, songLanguage);
+        appendIfNotEmpty(table, recordedRow, recordedAt);
+
+
+        const buttonRow = document.createElement("div");
+        Object.assign(buttonRow.style, {
+            display: "flex",
+            flexDirection: "row",
+            gap: "10px"
+        });
+
+        const createBtn = document.createElement("button");
+        createBtn.textContent = "Recreate Song Page";
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "Cancel";
+
+        if (editmetadatabutonSmallbutton) {
+            [createBtn, cancelBtn].forEach(btn => {
+                btn.className = editmetadatabutonSmallbutton.className;
+                Array.from(editmetadatabutonSmallbutton.attributes).forEach(attr => {
+                    btn.setAttribute(attr.name, attr.value);
+                });
+                btn.style.width = "fit-content";
+            });
+        }
+
+        const statusBox = document.createElement("div");
+        statusBox.textContent = "";
+
+        createBtn.addEventListener("click", async () => {
+            createBtn.disabled = true;
+            createBtn.style.pointerEvents = "none";
+            createBtn.style.opacity = "0.5";
+
+            async function waitWithStatus(seconds) {
+                for (let i = seconds; i > 0; i--) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+
+            async function runStepWithRetry(stepName, statusBox, fn, waitSeconds = 0) {
+                const maxRetries = 3;
+
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+
+                    if (attempt === 1) {
+                        statusBox.textContent = `${stepName}`;
+                    } else {
+                        statusBox.textContent = `${stepName} (attempt ${attempt}/${maxRetries})`;
+                    }
+
+                    if (waitSeconds > 0) await waitWithStatus(waitSeconds);
+
+                    const success = await fn();
+                    if (success) {
+                        statusBox.textContent = `${stepName}`;
+                        return true;
+                    }
+
+                    statusBox.textContent = `${stepName} failed (${attempt}/${maxRetries}), retrying in 10s...`;
+                    await waitWithStatus(10);
+                }
+
+                statusBox.textContent = `${stepName} failed (${maxRetries}/${maxRetries}). Aborting.`;
+                return false;
+            }
+
+
+            const albumTracklists = {};
+            let newSongId = null;
+
+
+            // ----------------------------------------------------
+            // STEP 1: GET TRACKLISTS
+            // ----------------------------------------------------
+            async function stepGetTracklists() {
+                try {
+                    if (!songAlbums.length) return true;
+
+                    for (const album of songAlbums) {
+                        let allTracks = [];
+                        let page = 1;
+                        let nextPage = 1;
+
+                        while (nextPage) {
+                            const response = await fetch(`https://genius.com/api/albums/${album.id}/tracks?page=${page}`);
+                            if (!response.ok) return false;
+
+                            const json = await response.json();
+                            const tracks = json.response.tracks || [];
+                            allTracks.push(...tracks);
+
+                            nextPage = json.response.next_page;
+                            page = nextPage;
+                        }
+
+                        albumTracklists[album.id] = allTracks;
+                    }
+
+                    console.log("Album Tracklists:", albumTracklists);
+                    return true;
+
+                } catch {
+                    return false;
+                }
+            }
+
+            if (!(await runStepWithRetry("Getting albums tracklist of the existing song", statusBox, stepGetTracklists, 1))) return;
+
+
+            // ----------------------------------------------------
+            // STEP 2: SET PRIMARY ARTIST TO SHELLY
+            // ----------------------------------------------------
+            const shellyPayload = { primary_artists: [{ id: 3703683, name: "Shelly The Cleanup Bot" }] };
+
+            async function stepSetShelly() {
+                try {
+                    const result = await updateSongMetadata(songId, shellyPayload);
+                    return !!result && result.ok;
+                } catch {
+                    return false;
+                }
+            }
+
+            if (!(await runStepWithRetry("Changing primary artist to 'Shelly The Cleanup Bot'", statusBox, stepSetShelly, 1))) return;
+
+
+            // ----------------------------------------------------
+            // STEP 3: CREATE NEW SONG
+            // ----------------------------------------------------
+            async function stepCreateSong() {
+                try {
+                    const song = {};
+
+                    if (songTitle?.[0]?.name) song.title = songTitle[0].name;
+                    if (primaryArtists.length) song.primary_artists = primaryArtists.map(a => ({ id: a.id, name: a.name }));
+                    if (featuredArtists.length) song.featured_artists = featuredArtists.map(a => ({ id: a.id, name: a.name }));
+                    if (writerArtists.length) song.writer_artists = writerArtists.map(a => ({ id: a.id, name: a.name }));
+                    if (producerArtists.length) song.producer_artists = producerArtists.map(a => ({ id: a.id, name: a.name }));
+                    if (additionalCredits.length) { song.custom_performances = additionalCredits.map(c => { const artistsWithName = c.artists.filter(a => a && a.name); if (!artistsWithName.length) return null; return { label: c.role, artists: artistsWithName.map(a => ({ id: a.id, name: a.name })) }; }).filter(Boolean); }
+                    if (primaryTags?.[0]?.id) song.primary_tag_id = primaryTags[0].id;
+                    if (secondaryTags.length) song.tags = secondaryTags.map(t => ({ id: t.id, name: t.name }));
+                    if (songAlbums.length) song.albums = songAlbums.map(a => ({ id: a.id, name: a.name }));
+                    if (releaseDate?.[0]) { song.release_date_components = { day: releaseDate[0].day, month: releaseDate[0].month, year: releaseDate[0].year }; }
+                    if (songLanguage?.[0]?.name) song.language = songLanguage[0].name;
+                    if (recordedAt?.[0]?.name) song.recorded_at = recordedAt[0].name;
+                    if (youtube?.[0]?.url) song.youtube_url = youtube[0].url;
+                    if (youtube?.[0]?.start) song.youtube_start = youtube[0].start;
+                    if (soundcloud?.[0]?.url) song.soundcloud_url = soundcloud[0].url;
+                    if (customSongArtImage?.[0]?.url) song.custom_song_art_image_url = customSongArtImage[0].url;
+                    song.lyrics_state = "incomplete";
+                    song.lyrics = "";
+
+                    const createPayload = {
+                        text_format: "html,markdown,preview",
+                        song
+                    };
+
+                    const result = await createSong(createPayload);
+                    newSongId = result?.response?.song?.id;
+
+                    return !!newSongId;
+                } catch {
+                    return false;
+                }
+            }
+
+            if (!(await runStepWithRetry("Creating new song", statusBox, stepCreateSong, 1))) return;
+
+
+            // ----------------------------------------------------
+            // STEP 4: DELETE OLD SONG
+            // ----------------------------------------------------
+            async function stepDeleteOldSong() {
+                try {
+                    const ok = await deleteId(songId, "songs");
+                    return ok;
+                } catch {
+                    return false;
+                }
+            }
+
+            if (!(await runStepWithRetry("Deleting old song", statusBox, stepDeleteOldSong, 1))) return;
+
+
+            // ----------------------------------------------------
+            // STEP 5: UPDATE TRACKLISTS
+            // ----------------------------------------------------
+            async function stepUpdateTracklists() {
+                try {
+                    for (const album of songAlbums) {
+                        const oldTracks = albumTracklists[album.id];
+                        const oldSong = oldTracks.find(t => t.song.id === songId);
+
+                        if (oldSong && oldSong.disc_track_number == null) continue;
+
+                        const payload = oldTracks.map(t => ({
+                            disc_track_number: t.disc_track_number,
+                            disc_number: t.disc_number,
+                            song_id: t.song.id === songId ? newSongId : t.song.id
+                        }));
+
+                        const ok = await updateTracklist(album.id, payload);
+                        if (!ok) return false;
+                    }
+
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+
+            if (songAlbums.length > 0) {
+                const hasHugeTracklist = songAlbums.some(album => {
+                    const tracks = albumTracklists[album.id];
+                    return tracks && tracks.length > 200;
+                });
+
+                if (hasHugeTracklist) {
+                    statusBox.textContent = "Done (skipped tracklist update: album has more than 200 tracks)";
+                    await waitWithStatus(2);
+                } else {
+                    if (!(await runStepWithRetry("Updating album tracklists", statusBox, stepUpdateTracklists, 3))) return;
+                }
+            }
+
+
+            // ----------------------------------------------------
+            // DONE
+            // ----------------------------------------------------
+            statusBox.textContent = "Done";
+            await waitWithStatus(2);
+
+            overlay.remove();
+            document.body.style.overflow = "";
+        });
+
+        cancelBtn.addEventListener("click", () => {
+            overlay.remove();
+            document.body.style.overflow = "";
+        });
+
+        buttonRow.appendChild(createBtn);
+        buttonRow.appendChild(cancelBtn);
+        buttonRow.appendChild(statusBox);
+
+
+        modal.appendChild(table);
+        modal.appendChild(buttonRow);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    }
+
 
 
 
@@ -3943,6 +4562,74 @@ chrome.storage.local.get([
                             ]
                         }
                     ]
+                },
+                ja: {
+                    Default: [
+                        { label: "<i>Italic</i>", openTag: "<i>", closeTag: "</i>", hoverText: "Italic" },
+                        { label: "<b>Bold</b>", openTag: "<b>", closeTag: "</b>", hoverText: "Bold" },
+                        { label: "<b><i>Italic + Bold</i></b>", openTag: "<b><i>", closeTag: "</i></b>", hoverText: "Italic+Bold" },
+                        { label: "Parentheses", openTag: "(", closeTag: ")", hoverText: "Parentheses" },
+                        {
+                            label: "Diacritics",
+                            isDropdown: true,
+                            hoverText: "Diacritics (uppercase)",
+                            items: [
+                                "Á", "À", "Â", "Ä",
+                                "É", "È", "Ê", "Ë",
+                                "Í", "Ì", "Î", "Ï",
+                                "Ó", "Ò", "Ô", "Ö",
+                                "Ú", "Ù", "Û", "Ü",
+                                "Ć", "Ń", "Ś", "Ź",
+                                "Č", "Ğ", "Š", "Ž",
+                                "Ç", "Ş", "I", "Ñ",
+                                "Đ", "Æ", "Œ", "ẞ",
+                            ]
+                        },
+                        {
+                            label: "Diacritics",
+                            isDropdown: true,
+                            hoverText: "Diacritics (lowercase)",
+                            items: [
+                                "á", "à", "â", "ä",
+                                "é", "è", "ê", "ë",
+                                "í", "ì", "î", "ï",
+                                "ó", "ò", "ô", "ö",
+                                "ú", "ù", "û", "ü",
+                                "ć", "ń", "ś", "ź",
+                                "č", "ğ", "š", "ž",
+                                "ç", "ş", "ı", "ñ",
+                                "đ", "æ", "œ", "ß",
+                            ]
+                        },
+                        {
+                            label: "Symbols",
+                            isDropdown: true,
+                            hoverText: "Symbols",
+                            items: [
+                                { label: "(", openTag: "&#40;", closeTag: "" },
+                                { label: ")", openTag: "&#41;", closeTag: "" },
+                                { label: "<", openTag: "&lt;", closeTag: "" },
+                                { label: ">", openTag: "&gt;", closeTag: "" },
+                                { label: "–", openTag: "–", closeTag: "" },
+                                { label: "—", openTag: "—", closeTag: "" },
+                                { label: "„...“", openTag: "„", closeTag: "“" },
+                                { label: "ZWSP", openTag: "&ZeroWidthSpace;", closeTag: "" },
+                                { label: "NBSP", openTag: "&nbsp;", closeTag: "" },
+                            ]
+                        },
+                        {
+                            label: "Symbols",
+                            isDropdown: true,
+                            hoverText: "Symbols",
+                            items: [
+                                { label: "！", openTag: "！", closeTag: "" },
+                                { label: "？", openTag: "？", closeTag: "" },
+                                { label: "、", openTag: "、", closeTag: "" },
+                                { label: "…", openTag: "…", closeTag: "" },
+                                { label: "「...」", openTag: "「", closeTag: "」" },
+                            ]
+                        }
+                    ],
                 },
             };
 
