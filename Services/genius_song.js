@@ -5020,6 +5020,8 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
             }
         }
 
+        // Uses markdownToGeniusHtml declared at module scope
+
         async function executeScheduledSave(targetEpochMs, currentSchedule, calibrationInfo) {
             currentSchedule.executing = true;
             updateButtonState();
@@ -5036,12 +5038,24 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                 if (!csrfToken) csrfToken = getCsrfToken();
                 if (!csrfToken) csrfToken = await ensureCsrfToken();
 
-                // 3. Extract lyrics from active editor textarea
+                // 3. Build a lookup map of existing annotations to preserve editorial-state
+                const songData = metaJson?.response?.song;
+                const referentsMap = (songData?.referents || []).reduce((acc, ref) => {
+                    if (ref && ref.id) acc[ref.id] = ref;
+                    return acc;
+                }, {});
+
+                // 4. Extract lyrics from active editor textarea and format annotations to HTML
                 const { lyricsTextareaInputTextarea } = getDomElements();
                 const textarea = lyricsTextareaInputTextarea || document.querySelector('textarea[class*="LyricsTextareaInput-"]');
-                const lyricHtml = textarea ? textarea.value : (metaJson?.response?.song?.lyrics?.body?.html || "");
+                let lyricHtml = "";
+                if (textarea) {
+                    lyricHtml = markdownToGeniusHtml(textarea.value, referentsMap);
+                } else {
+                    lyricHtml = metaJson?.response?.song?.lyrics?.body?.html || "";
+                }
 
-                // 4. Construct optimistic concurrency payload
+                // 5. Construct optimistic concurrency payload
                 const payload = {
                     text_format: "html,markdown,preview",
                     react: true,
@@ -5057,7 +5071,7 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                     }
                 };
 
-                // 5. High-precision sub-millisecond dispatch loop
+                // 6. High-precision sub-millisecond dispatch loop
                 const effectiveClientEpoch = currentSchedule.effectiveClientEpoch || targetEpochMs;
                 while (Date.now() < effectiveClientEpoch) {
                     // tight spin wait
@@ -8202,3 +8216,18 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
     }
 
 });
+
+function markdownToGeniusHtml(rawText, referentsMap = {}) {
+    if (!rawText) return "";
+    return rawText.replace(/\[([^\[\]]*?)\]\((\d+)\)/g, (match, fragment, id) => {
+        const ref = referentsMap[id] || {};
+        const editorialState = ref['editorial-state'] || ref.editorial_state || 'accepted';
+        return `<a href="/${id}" data-id="${id}" class="null" data-editorial-state="${editorialState}">${fragment}</a>`;
+    });
+}
+
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+        markdownToGeniusHtml
+    };
+}
