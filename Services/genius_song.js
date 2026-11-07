@@ -31,7 +31,8 @@ chrome.storage.local.get([
     'isGeniusSongSoundCloudPlayer',
     'isGeniusSongSpotifyPlayer',
     'isGeniusSongLyricEditor',
-    'isGeniusSongRenameButtons'
+    'isGeniusSongRenameButtons',
+    'isGeniusSongScheduledSave'
 ], async function (result) {
     const isGeniusSongSongPage = result.isGeniusSongSongPage ?? true;
     const isGeniusSongSongPageZwsp = result.isGeniusSongSongPageZwsp ?? true;
@@ -65,6 +66,7 @@ chrome.storage.local.get([
     const isGeniusSongSpotifyPlayer = result.isGeniusSongSpotifyPlayer ?? true;
     const isGeniusSongLyricEditor = result.isGeniusSongLyricEditor ?? true;
     const isGeniusSongRenameButtons = result.isGeniusSongRenameButtons ?? true;
+    const isGeniusSongScheduledSave = result.isGeniusSongScheduledSave ?? true;
 
 
     if (result['Services/genius_song.js'] === false) {
@@ -121,6 +123,7 @@ chrome.storage.local.get([
         if (isGeniusSongCleanupButton) selectDropdown(songData, "Cleanup");
         if (isGeniusSongSectionsButtons) lyricsSectionsButtons(songData);
         if (isGeniusSongAnnotationsButtons) lyricsAnnotationsButtons();
+        if (isGeniusSongScheduledSave) lyricsScheduledSave(songData);
 
         if (isGeniusSongFilterActivity) filterRecentActivity(profilePath);
 
@@ -4035,6 +4038,711 @@ chrome.storage.local.get([
 
             lyricseditexplainerContainer.parentNode.insertBefore(styleDiv, lyricseditexplainerContainer);
         }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////                            SCHEDULED LYRIC SAVE                                //////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function lyricsScheduledSave(songData) {
+        if (!isGeniusSongScheduledSave) return;
+        const songId = songData?.id || getId("song");
+        if (!songId) return;
+
+        let activeSchedule = null;
+        let toastTimeout = null;
+
+        function showToast(message, isError = false) {
+            let toast = document.getElementById("genius-schedule-save-toast");
+            if (!toast) {
+                toast = document.createElement("div");
+                toast.id = "genius-schedule-save-toast";
+                Object.assign(toast.style, {
+                    position: "fixed",
+                    bottom: "24px",
+                    right: "24px",
+                    padding: "12px 20px",
+                    borderRadius: "8px",
+                    color: "#fff",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    zIndex: "999999",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                    transition: "opacity 0.3s ease, transform 0.3s ease",
+                    maxWidth: "420px",
+                    lineHeight: "1.4"
+                });
+                document.body.appendChild(toast);
+            }
+            toast.style.backgroundColor = isError ? "#e02424" : "#057a55";
+            toast.textContent = message;
+            toast.style.opacity = "1";
+            toast.style.transform = "translateY(0)";
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.style.opacity = "0";
+                toast.style.transform = "translateY(10px)";
+            }, 6000);
+        }
+
+        function cancelActiveSchedule() {
+            if (activeSchedule) {
+                activeSchedule.cancelled = true;
+                if (activeSchedule.timerId) clearTimeout(activeSchedule.timerId);
+                if (activeSchedule.countdownInterval) clearInterval(activeSchedule.countdownInterval);
+                activeSchedule = null;
+            }
+            updateButtonState();
+        }
+
+        function updateButtonState() {
+            const btn = document.getElementById("genius-schedule-save-button");
+            if (!btn) return;
+
+            const subtitle = btn.querySelector("#genius-schedule-save-subtitle");
+
+            if (activeSchedule) {
+                const diffMs = activeSchedule.targetEpochMs - Date.now();
+                if (diffMs <= 0 || activeSchedule.executing) {
+                    btn.childNodes[0].textContent = "Saving... ";
+                    if (subtitle) subtitle.textContent = "Dispatching mutation";
+                } else {
+                    const totalSec = Math.floor(diffMs / 1000);
+                    const mm = Math.floor(totalSec / 60);
+                    const ss = totalSec % 60;
+                    btn.childNodes[0].textContent = "Scheduled ";
+                    if (subtitle) {
+                        subtitle.textContent = `in ${mm.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")} (click to view)`;
+                    }
+                }
+            } else {
+                btn.childNodes[0].textContent = "Schedule Save ";
+                if (subtitle) subtitle.textContent = "Timed save";
+            }
+        }
+
+        async function executeScheduledSave(targetEpochMs, currentSchedule) {
+            currentSchedule.executing = true;
+            updateButtonState();
+
+            try {
+                // 1. Fetch latest concurrency metadata from Genius API right before dispatch
+                const metaRes = await fetch(`https://genius.com/api/songs/${songId}?text_format=html`, { credentials: "include" });
+                if (!metaRes.ok) throw new Error(`Failed to refresh concurrency metadata: HTTP ${metaRes.status}`);
+                const metaJson = await metaRes.json();
+                const latestTimestamp = metaJson?.response?.song?.lyrics_updated_at;
+
+                // 2. Extract CSRF token
+                let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                if (!csrfToken) csrfToken = getCsrfToken();
+                if (!csrfToken) csrfToken = await ensureCsrfToken();
+
+                // 3. Extract lyrics from active editor textarea
+                const { lyricsTextareaInputTextarea } = getDomElements();
+                const textarea = lyricsTextareaInputTextarea || document.querySelector('textarea[class*="LyricsTextareaInput-"]');
+                const lyricHtml = textarea ? textarea.value : (metaJson?.response?.song?.lyrics?.body?.html || "");
+
+                // 4. Construct optimistic concurrency payload
+                const payload = {
+                    text_format: "html,markdown,preview",
+                    react: true,
+                    auto_resync: false,
+                    lyrics: {
+                        body: {
+                            html: lyricHtml
+                        }
+                    },
+                    client_timestamps: {
+                        updated_by_human_at: latestTimestamp,
+                        lyrics_updated_at: latestTimestamp
+                    }
+                };
+
+                // 5. Ultra-precise dispatch loop: wait until targetEpochMs precisely
+                while (Date.now() < targetEpochMs) {
+                    // tight spin wait
+                }
+
+                const res = await fetch(`https://genius.com/api/songs/${songId}/lyrics`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-Token": csrfToken
+                    },
+                    credentials: "include",
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${errText}`);
+                }
+
+                const data = await res.json();
+                console.log("[Scheduled Save Success] Lyrics updated at:", new Date().toISOString(), data);
+                showToast(`✓ Lyrics successfully saved at ${new Date().toLocaleTimeString()}!`);
+
+                const btn = document.getElementById("genius-schedule-save-button");
+                if (btn) {
+                    btn.childNodes[0].textContent = "Saved! ";
+                    const subtitle = btn.querySelector("#genius-schedule-save-subtitle");
+                    if (subtitle) subtitle.textContent = "Success (200 OK)";
+                    setTimeout(() => {
+                        cancelActiveSchedule();
+                    }, 4000);
+                }
+            } catch (err) {
+                console.error("[Scheduled Save Execution Failed]", err);
+                showToast(`✕ Scheduled save failed: ${err.message}`, true);
+                cancelActiveSchedule();
+            }
+        }
+
+        function scheduleSave(targetEpochMs) {
+            cancelActiveSchedule();
+
+            const scheduleObj = {
+                targetEpochMs,
+                timerId: null,
+                countdownInterval: null,
+                cancelled: false,
+                executing: false
+            };
+            activeSchedule = scheduleObj;
+
+            scheduleObj.countdownInterval = setInterval(() => {
+                if (scheduleObj.cancelled) return;
+                updateButtonState();
+            }, 500);
+
+            function armTimer() {
+                if (scheduleObj.cancelled) return;
+                const remaining = targetEpochMs - Date.now();
+
+                if (remaining <= 0) {
+                    executeScheduledSave(targetEpochMs, scheduleObj);
+                    return;
+                }
+
+                if (remaining > 1000) {
+                    scheduleObj.timerId = setTimeout(armTimer, remaining - 500);
+                } else if (remaining > 30) {
+                    scheduleObj.timerId = setTimeout(armTimer, remaining - 25);
+                } else {
+                    executeScheduledSave(targetEpochMs, scheduleObj);
+                }
+            }
+
+            armTimer();
+            updateButtonState();
+        }
+
+        function openScheduleModal() {
+            const existingModal = document.getElementById("genius-schedule-save-modal-overlay");
+            if (existingModal) existingModal.remove();
+
+            const overlay = document.createElement("div");
+            overlay.id = "genius-schedule-save-modal-overlay";
+            Object.assign(overlay.style, {
+                position: "fixed",
+                top: "0",
+                left: "0",
+                width: "100%",
+                height: "100%",
+                backgroundColor: "rgba(0, 0, 0, 0.7)",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: "1000000",
+                fontFamily: "Programme, Arial, sans-serif"
+            });
+
+            const modal = document.createElement("div");
+            Object.assign(modal.style, {
+                backgroundColor: "#fff",
+                borderRadius: "12px",
+                padding: "1.5rem 1.75rem",
+                width: "480px",
+                maxWidth: "92vw",
+                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.35)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "1rem",
+                color: "#111"
+            });
+
+            const header = document.createElement("div");
+            Object.assign(header.style, {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid #e5e7eb",
+                paddingBottom: "0.75rem"
+            });
+
+            const title = document.createElement("h2");
+            title.textContent = "Schedule Lyric Save";
+            Object.assign(title.style, {
+                margin: "0",
+                fontSize: "1.25rem",
+                fontWeight: "700"
+            });
+
+            const closeX = document.createElement("button");
+            closeX.innerHTML = "&times;";
+            closeX.type = "button";
+            Object.assign(closeX.style, {
+                background: "none",
+                border: "none",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+                color: "#6b7280"
+            });
+            closeX.onclick = () => overlay.remove();
+
+            header.append(title, closeX);
+            modal.appendChild(header);
+
+            if (activeSchedule) {
+                const activeContainer = document.createElement("div");
+                Object.assign(activeContainer.style, {
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem"
+                });
+
+                const targetDate = new Date(activeSchedule.targetEpochMs);
+                const infoText = document.createElement("div");
+                infoText.innerHTML = `
+                    <div style="font-size: 0.95rem; line-height: 1.5;">
+                        A lyric save is currently <b>scheduled</b> for:<br>
+                        <span style="font-size: 1.15rem; font-weight: bold; color: #1877f2;">
+                            ${targetDate.toLocaleString()} .${targetDate.getMilliseconds().toString().padStart(3, "0")}
+                        </span><br>
+                        <span style="font-size: 0.85rem; color: #6b7280;">Epoch: ${activeSchedule.targetEpochMs} ms</span>
+                    </div>
+                `;
+
+                const countdownBox = document.createElement("div");
+                Object.assign(countdownBox.style, {
+                    padding: "0.75rem 1rem",
+                    backgroundColor: "#f0f7ff",
+                    borderRadius: "8px",
+                    border: "1px solid #bae0ff",
+                    fontWeight: "600",
+                    color: "#0050b3",
+                    fontSize: "1.05rem",
+                    textAlign: "center"
+                });
+
+                const modalInterval = setInterval(() => {
+                    if (!overlay.parentNode || !activeSchedule) {
+                        clearInterval(modalInterval);
+                        return;
+                    }
+                    const diffMs = activeSchedule.targetEpochMs - Date.now();
+                    if (diffMs <= 0) {
+                        countdownBox.textContent = "Executing scheduled save...";
+                    } else {
+                        const sec = (diffMs / 1000).toFixed(1);
+                        countdownBox.textContent = `Dispatching in ${sec}s`;
+                    }
+                }, 100);
+
+                const btnRow = document.createElement("div");
+                Object.assign(btnRow.style, {
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "0.5rem",
+                    marginTop: "0.5rem"
+                });
+
+                const cancelBtn = document.createElement("button");
+                cancelBtn.textContent = "Cancel Schedule";
+                cancelBtn.type = "button";
+                Object.assign(cancelBtn.style, {
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#e02424",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontWeight: "600",
+                    cursor: "pointer"
+                });
+                cancelBtn.onclick = () => {
+                    cancelActiveSchedule();
+                    clearInterval(modalInterval);
+                    overlay.remove();
+                    showToast("Scheduled save cancelled.");
+                };
+
+                const rescheduleBtn = document.createElement("button");
+                rescheduleBtn.textContent = "Change Time";
+                rescheduleBtn.type = "button";
+                Object.assign(rescheduleBtn.style, {
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#1877f2",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontWeight: "600",
+                    cursor: "pointer"
+                });
+                rescheduleBtn.onclick = () => {
+                    cancelActiveSchedule();
+                    clearInterval(modalInterval);
+                    overlay.remove();
+                    openScheduleModal();
+                };
+
+                btnRow.append(cancelBtn, rescheduleBtn);
+                activeContainer.append(infoText, countdownBox, btnRow);
+                modal.appendChild(activeContainer);
+            } else {
+                const desc = document.createElement("p");
+                desc.textContent = "Set the exact date and time to automatically submit your lyric changes. Timed to sub-millisecond accuracy.";
+                Object.assign(desc.style, {
+                    fontSize: "0.85rem",
+                    color: "#4b5563",
+                    margin: "0"
+                });
+                modal.appendChild(desc);
+
+                const quickRow = document.createElement("div");
+                Object.assign(quickRow.style, {
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "6px",
+                    alignItems: "center"
+                });
+
+                const quickLabel = document.createElement("span");
+                quickLabel.textContent = "Quick delay:";
+                Object.assign(quickLabel.style, {
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    color: "#374151",
+                    marginRight: "4px"
+                });
+                quickRow.appendChild(quickLabel);
+
+                let targetEpoch = Date.now() + 60000;
+
+                const form = document.createElement("div");
+                Object.assign(form.style, {
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem"
+                });
+
+                const dtRow = document.createElement("div");
+                Object.assign(dtRow.style, {
+                    display: "grid",
+                    gridTemplateColumns: "1fr 90px",
+                    gap: "8px"
+                });
+
+                const dtContainer = document.createElement("div");
+                const dtLabel = document.createElement("label");
+                dtLabel.textContent = "Target Date & Time";
+                Object.assign(dtLabel.style, {
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    color: "#374151",
+                    display: "block",
+                    marginBottom: "4px"
+                });
+                const dtInput = document.createElement("input");
+                dtInput.type = "datetime-local";
+                dtInput.step = "1";
+                Object.assign(dtInput.style, {
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "6px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    fontSize: "0.9rem"
+                });
+                dtContainer.append(dtLabel, dtInput);
+
+                const msContainer = document.createElement("div");
+                const msLabel = document.createElement("label");
+                msLabel.textContent = "Millis (ms)";
+                Object.assign(msLabel.style, {
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    color: "#374151",
+                    display: "block",
+                    marginBottom: "4px"
+                });
+                const msInput = document.createElement("input");
+                msInput.type = "number";
+                msInput.min = "0";
+                msInput.max = "999";
+                msInput.value = "0";
+                Object.assign(msInput.style, {
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "6px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    fontSize: "0.9rem"
+                });
+                msContainer.append(msLabel, msInput);
+
+                dtRow.append(dtContainer, msContainer);
+                form.appendChild(dtRow);
+
+                const epochContainer = document.createElement("div");
+                const epochLabel = document.createElement("label");
+                epochLabel.textContent = "Target Epoch (milliseconds)";
+                Object.assign(epochLabel.style, {
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    color: "#374151",
+                    display: "block",
+                    marginBottom: "4px"
+                });
+                const epochInput = document.createElement("input");
+                epochInput.type = "number";
+                Object.assign(epochInput.style, {
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "6px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    fontSize: "0.9rem"
+                });
+                epochContainer.append(epochLabel, epochInput);
+                form.appendChild(epochContainer);
+
+                const previewBox = document.createElement("div");
+                Object.assign(previewBox.style, {
+                    padding: "8px 12px",
+                    backgroundColor: "#f9fafb",
+                    borderRadius: "6px",
+                    border: "1px solid #e5e7eb",
+                    fontSize: "0.85rem",
+                    color: "#1f2937",
+                    lineHeight: "1.4"
+                });
+                form.appendChild(previewBox);
+
+                function formatToDatetimeLocal(d) {
+                    const YYYY = d.getFullYear();
+                    const MM = String(d.getMonth() + 1).padStart(2, "0");
+                    const DD = String(d.getDate()).padStart(2, "0");
+                    const hh = String(d.getHours()).padStart(2, "0");
+                    const mm = String(d.getMinutes()).padStart(2, "0");
+                    const ss = String(d.getSeconds()).padStart(2, "0");
+                    return `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}`;
+                }
+
+                function syncFromEpoch(epoch) {
+                    targetEpoch = epoch;
+                    const d = new Date(epoch);
+                    dtInput.value = formatToDatetimeLocal(d);
+                    msInput.value = d.getMilliseconds();
+                    epochInput.value = epoch;
+                    updatePreview();
+                }
+
+                function syncFromInputs() {
+                    if (!dtInput.value) return;
+                    const baseDate = new Date(dtInput.value);
+                    const ms = parseInt(msInput.value || "0", 10);
+                    targetEpoch = baseDate.getTime() + (isNaN(ms) ? 0 : ms);
+                    epochInput.value = targetEpoch;
+                    updatePreview();
+                }
+
+                function updatePreview() {
+                    const now = Date.now();
+                    const diff = targetEpoch - now;
+                    if (diff <= 0) {
+                        previewBox.style.color = "#e02424";
+                        previewBox.textContent = "Target time is in the past! Please choose a future time.";
+                    } else {
+                        previewBox.style.color = "#1f2937";
+                        const sec = (diff / 1000).toFixed(2);
+                        previewBox.innerHTML = `Will trigger in: <b>${sec}s</b> (${new Date(targetEpoch).toLocaleTimeString()}.${new Date(targetEpoch).getMilliseconds().toString().padStart(3, "0")})`;
+                    }
+                }
+
+                const quickDeltas = [
+                    { label: "+10s", ms: 10000 },
+                    { label: "+30s", ms: 30000 },
+                    { label: "+1m", ms: 60000 },
+                    { label: "+2m", ms: 120000 },
+                    { label: "+5m", ms: 300000 },
+                    {
+                        label: "Next :00",
+                        action: () => {
+                            const d = new Date();
+                            d.setMinutes(d.getMinutes() + 1, 0, 0);
+                            syncFromEpoch(d.getTime());
+                        }
+                    }
+                ];
+
+                quickDeltas.forEach(q => {
+                    const qBtn = document.createElement("button");
+                    qBtn.type = "button";
+                    qBtn.textContent = q.label;
+                    Object.assign(qBtn.style, {
+                        padding: "3px 8px",
+                        fontSize: "0.75rem",
+                        backgroundColor: "#f3f4f6",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontWeight: "500"
+                    });
+                    qBtn.onclick = () => {
+                        if (q.action) {
+                            q.action();
+                        } else {
+                            syncFromEpoch(Date.now() + q.ms);
+                        }
+                    };
+                    quickRow.appendChild(qBtn);
+                });
+
+                modal.appendChild(quickRow);
+                modal.appendChild(form);
+
+                dtInput.addEventListener("input", syncFromInputs);
+                msInput.addEventListener("input", syncFromInputs);
+                epochInput.addEventListener("input", () => {
+                    const ep = parseInt(epochInput.value, 10);
+                    if (!isNaN(ep)) syncFromEpoch(ep);
+                });
+
+                syncFromEpoch(Date.now() + 60000);
+
+                const btnRow = document.createElement("div");
+                Object.assign(btnRow.style, {
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "0.5rem",
+                    marginTop: "0.5rem"
+                });
+
+                const cancelBtn = document.createElement("button");
+                cancelBtn.textContent = "Cancel";
+                cancelBtn.type = "button";
+                Object.assign(cancelBtn.style, {
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#f3f4f6",
+                    color: "#374151",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontWeight: "600",
+                    cursor: "pointer"
+                });
+                cancelBtn.onclick = () => overlay.remove();
+
+                const scheduleBtn = document.createElement("button");
+                scheduleBtn.textContent = "Start Schedule";
+                scheduleBtn.type = "button";
+                Object.assign(scheduleBtn.style, {
+                    padding: "0.5rem 1.25rem",
+                    backgroundColor: "#1877f2",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontWeight: "700",
+                    cursor: "pointer"
+                });
+                scheduleBtn.onclick = () => {
+                    if (targetEpoch <= Date.now()) {
+                        alert("Target time must be in the future!");
+                        return;
+                    }
+                    scheduleSave(targetEpoch);
+                    overlay.remove();
+                    showToast(`Scheduled save armed for ${new Date(targetEpoch).toLocaleTimeString()}!`);
+                };
+
+                btnRow.append(cancelBtn, scheduleBtn);
+                modal.appendChild(btnRow);
+            }
+
+            overlay.appendChild(modal);
+            overlay.onclick = (e) => {
+                if (e.target === overlay) overlay.remove();
+            };
+            document.body.appendChild(overlay);
+        }
+
+        function injectScheduleButton() {
+            if (document.getElementById("genius-schedule-save-button")) return;
+
+            const controls = document.querySelector('div[class*="LyricsEdit-desktop__Controls-"]');
+            if (!controls) return;
+
+            const buttons = Array.from(controls.querySelectorAll("button"));
+            const saveBtn = buttons.find(b => {
+                const text = b.childNodes[0]?.textContent?.trim() || b.textContent.trim();
+                return text === "Save" && !b.textContent.includes("Exit");
+            });
+
+            if (!saveBtn) return;
+
+            const scheduleBtn = document.createElement("button");
+            scheduleBtn.type = "button";
+            scheduleBtn.id = "genius-schedule-save-button";
+            scheduleBtn.className = saveBtn.className;
+            Object.assign(scheduleBtn.style, {
+                backgroundColor: "#1877f2",
+                borderColor: "#1877f2",
+                color: "#ffffff",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                marginTop: "0.35rem"
+            });
+
+            const subtitleSource = saveBtn.querySelector('span[class*="Button__Subtitle-"]');
+            const subtitle = document.createElement("span");
+            subtitle.id = "genius-schedule-save-subtitle";
+            if (subtitleSource) {
+                subtitle.className = subtitleSource.className;
+            } else {
+                Object.assign(subtitle.style, {
+                    fontSize: "0.75rem",
+                    opacity: "0.9",
+                    display: "block",
+                    fontWeight: "normal"
+                });
+            }
+
+            scheduleBtn.appendChild(document.createTextNode("Schedule Save "));
+            scheduleBtn.appendChild(subtitle);
+
+            scheduleBtn.addEventListener("click", () => {
+                openScheduleModal();
+            });
+
+            // Insert directly under the green Save button
+            if (saveBtn.nextSibling) {
+                saveBtn.parentNode.insertBefore(scheduleBtn, saveBtn.nextSibling);
+            } else {
+                saveBtn.parentNode.appendChild(scheduleBtn);
+            }
+
+            updateButtonState();
+        }
+
+        const observer = new MutationObserver(() => {
+            injectScheduleButton();
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+        injectScheduleButton();
     }
 
     function lyricsCleanupLogic(cleanupType) {
