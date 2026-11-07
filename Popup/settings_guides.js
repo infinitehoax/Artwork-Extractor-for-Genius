@@ -239,6 +239,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const isGeniusSongLyricEditor = document.getElementById('isGeniusSongLyricEditor').checked;
         const isGeniusSongRenameButtons = document.getElementById('isGeniusSongRenameButtons').checked;
         const isGeniusSongScheduledSave = document.getElementById('isGeniusSongScheduledSave').checked;
+        const isGeniusSongFixLatency = document.getElementById('isGeniusSongFixLatency').checked;
+        const geniusSongScheduledSaveManualOffset = parseInt(document.getElementById('geniusSongScheduledSaveManualOffset').value || '0', 10) || 0;
         const isGeniusAlbumAlbumPage = document.getElementById('isGeniusAlbumAlbumPage').checked;
         const isGeniusAlbumAlbumPageZwsp = document.getElementById('isGeniusAlbumAlbumPageZwsp').checked;
         const isGeniusAlbumAlbumPageInfo = document.getElementById('isGeniusAlbumAlbumPageInfo').checked;
@@ -372,6 +374,8 @@ document.addEventListener('DOMContentLoaded', function () {
             isGeniusSongLyricEditor: isGeniusSongLyricEditor,
             isGeniusSongRenameButtons: isGeniusSongRenameButtons,
             isGeniusSongScheduledSave: isGeniusSongScheduledSave,
+            isGeniusSongFixLatency: isGeniusSongFixLatency,
+            geniusSongScheduledSaveManualOffset: geniusSongScheduledSaveManualOffset,
             isGeniusAlbumAlbumPage: isGeniusAlbumAlbumPage,
             isGeniusAlbumAlbumPageZwsp: isGeniusAlbumAlbumPageZwsp,
             isGeniusAlbumAlbumPageInfo: isGeniusAlbumAlbumPageInfo,
@@ -475,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     chrome.storage.local.get([
-        'isGeniusSongSongPage', 'isGeniusSongSongPageZwsp', 'isGeniusSongSongPageInfo', 'isGeniusSongSongId', 'isGeniusSongCheckIndex', 'isGeniusSongFollowButton', 'isGeniusSongTranslationButton','isGeniusSongShellyButton', 'isGeniusSongCleanupMetadataButton', 'isGeniusSongLanguageButton', 'isGeniusSongCleanupButton', 'isGeniusSongSectionsButtons', 'isGeniusSongScribingButton', 'geniusSongScribingText', 'isGeniusSongFixingButton', 'geniusSongFixingText', 'isGeniusSongClaimButton', 'geniusSongClaimText', 'isGeniusSongExpandSectionsButtons', 'isGeniusSongAnnotationsButtons', 'isGeniusSongFilterActivity', 'isGeniusSongFilterNotifications', 'isGeniusSongSaveFilters', 'isGeniusSongFilterFirehose','isGeniusSongCopyCover', 'isGeniusSongAppleMusicPlayer', 'isGeniusSongYouTubePlayer', 'isGeniusSongSoundCloudPlayer', 'isGeniusSongSpotifyPlayer', 'isGeniusSongLyricEditor', 'isGeniusSongRenameButtons', 'isGeniusSongScheduledSave',
+        'isGeniusSongSongPage', 'isGeniusSongSongPageZwsp', 'isGeniusSongSongPageInfo', 'isGeniusSongSongId', 'isGeniusSongCheckIndex', 'isGeniusSongFollowButton', 'isGeniusSongTranslationButton','isGeniusSongShellyButton', 'isGeniusSongCleanupMetadataButton', 'isGeniusSongLanguageButton', 'isGeniusSongCleanupButton', 'isGeniusSongSectionsButtons', 'isGeniusSongScribingButton', 'geniusSongScribingText', 'isGeniusSongFixingButton', 'geniusSongFixingText', 'isGeniusSongClaimButton', 'geniusSongClaimText', 'isGeniusSongExpandSectionsButtons', 'isGeniusSongAnnotationsButtons', 'isGeniusSongFilterActivity', 'isGeniusSongFilterNotifications', 'isGeniusSongSaveFilters', 'isGeniusSongFilterFirehose','isGeniusSongCopyCover', 'isGeniusSongAppleMusicPlayer', 'isGeniusSongYouTubePlayer', 'isGeniusSongSoundCloudPlayer', 'isGeniusSongSpotifyPlayer', 'isGeniusSongLyricEditor', 'isGeniusSongRenameButtons', 'isGeniusSongScheduledSave', 'isGeniusSongFixLatency', 'geniusSongScheduledSaveManualOffset',
         'isGeniusAlbumAlbumPage', 'isGeniusAlbumAlbumPageZwsp', 'isGeniusAlbumAlbumPageInfo', 'isGeniusAlbumAlbumId', 'isGeniusAlbumAlbumPageLyrics', 'isGeniusAlbumExpandTracklist', 'isGeniusAlbumEditTracklist', 'isGeniusAlbumUploadCover', 'isGeniusAlbumRenameButtons', 'isGeniusAlbumSongCreditsButton', 'isGeniusAlbumSongCreditsAutoReopen', 'isGeniusAlbumFollowButton', 'isGeniusAlbumCleanupButton', 'isGeniusAlbumBulkInstrumental',
         'isGeniusArtistArtistPage', 'isGeniusArtistArtistPageZwsp', 'isGeniusArtistArtistPageInfo', 'isGeniusArtistArtistId', 'isGeniusArtistAllSongsAlbumsPage', 'isGeniusArtistAllSongsAlbumsPageMetadata', 'isGeniusArtistAllSongsAlbumsPageZwsp', 'isGeniusArtistFollowButton', 'isGeniusArtistSpreadsheetButton', 'isGeniusArtistSearchArtistMetadata', 'isGeniusArtistBulkAwardIq', 'isGeniusArtistRecords', 'isGeniusArtistNewPage',
         'is45CopyCover', 'is45Popup', 'is45ConvertPNG', 'is45SaveImage', 'is45HostImgBB', 'is45HostFilestack', 'is45RightClick',
@@ -523,6 +527,8 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('isGeniusSongLyricEditor').checked = result.isGeniusSongLyricEditor !== undefined ? result.isGeniusSongLyricEditor : true;
         document.getElementById('isGeniusSongRenameButtons').checked = result.isGeniusSongRenameButtons !== undefined ? result.isGeniusSongRenameButtons : true;
         document.getElementById('isGeniusSongScheduledSave').checked = result.isGeniusSongScheduledSave !== undefined ? result.isGeniusSongScheduledSave : true;
+        document.getElementById('isGeniusSongFixLatency').checked = result.isGeniusSongFixLatency !== undefined ? result.isGeniusSongFixLatency : true;
+        document.getElementById('geniusSongScheduledSaveManualOffset').value = result.geniusSongScheduledSaveManualOffset !== undefined ? result.geniusSongScheduledSaveManualOffset : 0;
         document.getElementById('isGeniusAlbumAlbumPage').checked = result.isGeniusAlbumAlbumPage !== undefined ? result.isGeniusAlbumAlbumPage : true;
         document.getElementById('isGeniusAlbumAlbumPageZwsp').checked = result.isGeniusAlbumAlbumPageZwsp !== undefined ? result.isGeniusAlbumAlbumPageZwsp : true;
         document.getElementById('isGeniusAlbumAlbumPageInfo').checked = result.isGeniusAlbumAlbumPageInfo !== undefined ? result.isGeniusAlbumAlbumPageInfo : true;
@@ -657,6 +663,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('isGeniusSongLyricEditor').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongRenameButtons').addEventListener('change', saveSettings);
     document.getElementById('isGeniusSongScheduledSave').addEventListener('change', saveSettings);
+    document.getElementById('isGeniusSongFixLatency').addEventListener('change', saveSettings);
+    document.getElementById('geniusSongScheduledSaveManualOffset').addEventListener('input', saveSettings);
     document.getElementById('isGeniusAlbumAlbumPage').addEventListener('change', saveSettings);
     document.getElementById('isGeniusAlbumAlbumPageZwsp').addEventListener('change', saveSettings);
     document.getElementById('isGeniusAlbumAlbumPageInfo').addEventListener('change', saveSettings);

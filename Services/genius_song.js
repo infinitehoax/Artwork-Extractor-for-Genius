@@ -33,7 +33,9 @@ chrome.storage.local.get([
     'isGeniusSongSpotifyPlayer',
     'isGeniusSongLyricEditor',
     'isGeniusSongRenameButtons',
-    'isGeniusSongScheduledSave'
+    'isGeniusSongScheduledSave',
+    'isGeniusSongFixLatency',
+    'geniusSongScheduledSaveManualOffset'
 ], async function (result) {
     const isGeniusSongSongPage = result.isGeniusSongSongPage ?? true;
     const isGeniusSongSongPageZwsp = result.isGeniusSongSongPageZwsp ?? true;
@@ -69,6 +71,8 @@ chrome.storage.local.get([
     const isGeniusSongLyricEditor = result.isGeniusSongLyricEditor ?? true;
     const isGeniusSongRenameButtons = result.isGeniusSongRenameButtons ?? true;
     const isGeniusSongScheduledSave = result.isGeniusSongScheduledSave ?? true;
+    const isGeniusSongFixLatency = result.isGeniusSongFixLatency ?? true;
+    const geniusSongScheduledSaveManualOffset = typeof result.geniusSongScheduledSaveManualOffset === "number" ? result.geniusSongScheduledSaveManualOffset : (parseInt(result.geniusSongScheduledSaveManualOffset, 10) || 0);
 
 
     if (result['Services/genius_song.js'] === false) {
@@ -4731,6 +4735,213 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
     //////////                            SCHEDULED LYRIC SAVE                                //////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    // Telemetry & Latency Calibration Engine
+    const GeniusScheduledSaveTelemetry = {
+        STORAGE_KEY: "genius_scheduled_save_telemetry",
+        CONFIG_KEY: "genius_scheduled_save_config",
+
+        async getConfig() {
+            return new Promise((resolve) => {
+                if (typeof chrome === "undefined" || !chrome?.storage?.local) {
+                    resolve({ fixLatency: true, manualOffsetMs: 0 });
+                    return;
+                }
+                chrome.storage.local.get([this.CONFIG_KEY, "isGeniusSongFixLatency", "geniusSongScheduledSaveManualOffset"], (res) => {
+                    const cfg = res[this.CONFIG_KEY] || {};
+                    const fixLatency = cfg.fixLatency !== undefined ? cfg.fixLatency : (res.isGeniusSongFixLatency !== undefined ? res.isGeniusSongFixLatency : true);
+                    const manualOffsetMs = cfg.manualOffsetMs !== undefined ? cfg.manualOffsetMs : (typeof res.geniusSongScheduledSaveManualOffset === "number" ? res.geniusSongScheduledSaveManualOffset : (parseInt(res.geniusSongScheduledSaveManualOffset, 10) || 0));
+                    resolve({ fixLatency, manualOffsetMs });
+                });
+            });
+        },
+
+        async saveConfig(cfg) {
+            return new Promise((resolve) => {
+                if (typeof chrome === "undefined" || !chrome?.storage?.local) return resolve();
+                chrome.storage.local.set({
+                    [this.CONFIG_KEY]: cfg,
+                    isGeniusSongFixLatency: cfg.fixLatency,
+                    geniusSongScheduledSaveManualOffset: cfg.manualOffsetMs
+                }, () => resolve());
+            });
+        },
+
+        async getTelemetry() {
+            return new Promise((resolve) => {
+                if (typeof chrome === "undefined" || !chrome?.storage?.local) {
+                    resolve({ lastSamples: [], recentDispatches: [] });
+                    return;
+                }
+                chrome.storage.local.get(this.STORAGE_KEY, (res) => {
+                    resolve(res[this.STORAGE_KEY] || { lastSamples: [], recentDispatches: [] });
+                });
+            });
+        },
+
+        async recordDispatchFeedback(dispatchRecord) {
+            return new Promise((resolve) => {
+                if (typeof chrome === "undefined" || !chrome?.storage?.local) return resolve();
+                chrome.storage.local.get(this.STORAGE_KEY, (res) => {
+                    const data = res[this.STORAGE_KEY] || { lastSamples: [], recentDispatches: [] };
+                    if (!data.recentDispatches) data.recentDispatches = [];
+                    data.recentDispatches.unshift(dispatchRecord);
+                    if (data.recentDispatches.length > 20) data.recentDispatches.length = 20;
+                    chrome.storage.local.set({ [this.STORAGE_KEY]: data }, () => resolve());
+                });
+            });
+        },
+
+        // Benchmark network speed (download throughput in KB/s)
+        async measureSpeed(targetSongId) {
+            try {
+                const startTime = performance.now();
+                const res = await fetch(`https://genius.com/api/songs/${targetSongId}?text_format=html&_cb=${Date.now()}`, {
+                    cache: "no-store",
+                    credentials: "include"
+                });
+                const blob = await res.blob();
+                const durationSec = (performance.now() - startTime) / 1000;
+                const sizeKb = blob.size / 1024;
+                const speedKbps = durationSec > 0 ? Math.round(sizeKb / durationSec) : 0;
+                return { speedKbps, durationMs: Math.round(durationSec * 1000), sizeKb: Math.round(sizeKb) };
+            } catch (e) {
+                return { speedKbps: 0, durationMs: 0, sizeKb: 0, error: e.message };
+            }
+        },
+
+        // Query server time via SNTP-style round trip
+        async sampleGeniusPing(targetSongId) {
+            const t0 = Date.now();
+            const perf0 = performance.now();
+            try {
+                const res = await fetch(`https://genius.com/api/songs/${targetSongId}?text_format=plain&_ts=${Date.now()}`, {
+                    method: "HEAD",
+                    cache: "no-store",
+                    credentials: "include"
+                });
+                const perf3 = performance.now();
+                const t3 = Date.now();
+                const rtt = Math.max(1, Math.round(perf3 - perf0));
+                const oneWayLatency = Math.round(rtt / 2);
+                const dateHeader = res.headers.get("date");
+                let serverEpoch = null;
+                let clockOffset = 0;
+                if (dateHeader) {
+                    serverEpoch = Date.parse(dateHeader);
+                    if (!isNaN(serverEpoch)) {
+                        clockOffset = Math.round(serverEpoch - ((t0 + t3) / 2));
+                    }
+                }
+                return {
+                    success: true,
+                    t0,
+                    t3,
+                    rtt,
+                    oneWayLatency,
+                    serverEpoch,
+                    clockOffset,
+                    dateHeader
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    rtt: 0,
+                    oneWayLatency: 0,
+                    clockOffset: 0,
+                    error: err.message
+                };
+            }
+        },
+
+        // Query WorldTime API as secondary reference
+        async sampleWorldTime() {
+            const t0 = Date.now();
+            const perf0 = performance.now();
+            try {
+                const res = await fetch(`https://worldtimeapi.org/api/timezone/Etc/UTC?_cb=${Date.now()}`, {
+                    cache: "no-store"
+                });
+                const perf3 = performance.now();
+                const t3 = Date.now();
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const serverEpoch = data.unixtime ? (data.unixtime * 1000 + (data.raw_offset || 0)) : Date.parse(data.datetime);
+                const rtt = Math.max(1, Math.round(perf3 - perf0));
+                const oneWayLatency = Math.round(rtt / 2);
+                const clockOffset = Math.round(serverEpoch - ((t0 + t3) / 2));
+                return {
+                    success: true,
+                    rtt,
+                    oneWayLatency,
+                    serverEpoch,
+                    clockOffset,
+                    source: "worldtimeapi.org"
+                };
+            } catch (e) {
+                return { success: false, error: e.message };
+            }
+        },
+
+        // Run full calibration suite (multi-sample ping, speed test, offset calculation)
+        async runCalibrationSuite(targetSongId, onProgress) {
+            if (onProgress) onProgress("Pinging Genius server (sample 1/4)...");
+            const samples = [];
+            for (let i = 0; i < 4; i++) {
+                if (onProgress) onProgress(`Pinging Genius server (sample ${i + 1}/4)...`);
+                const sample = await this.sampleGeniusPing(targetSongId);
+                if (sample.success) samples.push(sample);
+                await new Promise(r => setTimeout(r, 150));
+            }
+
+            if (onProgress) onProgress("Consulting high-precision time authority...");
+            const worldTime = await this.sampleWorldTime();
+
+            if (onProgress) onProgress("Measuring internet connection speed to Genius...");
+            const speed = await this.measureSpeed(targetSongId);
+
+            if (samples.length === 0) {
+                throw new Error("Could not reach Genius server for latency calibration.");
+            }
+
+            samples.sort((a, b) => a.rtt - b.rtt);
+            const bestSample = samples[0];
+            const medianRtt = samples[Math.floor(samples.length / 2)].rtt;
+            const oneWayLatency = Math.round(medianRtt / 2);
+
+            const validOffsets = samples.filter(s => s.serverEpoch != null).map(s => s.clockOffset);
+            let estimatedOffset = 0;
+            if (validOffsets.length > 0) {
+                validOffsets.sort((a, b) => a - b);
+                estimatedOffset = validOffsets[Math.floor(validOffsets.length / 2)];
+            } else if (worldTime.success) {
+                estimatedOffset = worldTime.clockOffset;
+            }
+
+            const calibrationResult = {
+                timestamp: Date.now(),
+                samplesCount: samples.length,
+                minRtt: bestSample.rtt,
+                medianRtt,
+                oneWayLatency,
+                clockOffset: estimatedOffset,
+                worldTimeOffset: worldTime.success ? worldTime.clockOffset : null,
+                speedKbps: speed.speedKbps,
+                speedDurationMs: speed.durationMs,
+                speedSizeKb: speed.sizeKb
+            };
+
+            if (typeof chrome !== "undefined" && chrome?.storage?.local) {
+                chrome.storage.local.get(this.STORAGE_KEY, (res) => {
+                    const data = res[this.STORAGE_KEY] || {};
+                    data.latestCalibration = calibrationResult;
+                    chrome.storage.local.set({ [this.STORAGE_KEY]: data });
+                });
+            }
+
+            return calibrationResult;
+        }
+    };
+
     function lyricsScheduledSave(songData) {
         if (!isGeniusSongScheduledSave) return;
         const songId = songData?.id || getId("song");
@@ -4756,13 +4967,13 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                     zIndex: "999999",
                     boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
                     transition: "opacity 0.3s ease, transform 0.3s ease",
-                    maxWidth: "420px",
+                    maxWidth: "460px",
                     lineHeight: "1.4"
                 });
                 document.body.appendChild(toast);
             }
             toast.style.backgroundColor = isError ? "#e02424" : "#057a55";
-            toast.textContent = message;
+            toast.innerHTML = message;
             toast.style.opacity = "1";
             toast.style.transform = "translateY(0)";
 
@@ -4770,7 +4981,7 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
             toastTimeout = setTimeout(() => {
                 toast.style.opacity = "0";
                 toast.style.transform = "translateY(10px)";
-            }, 6000);
+            }, 7000);
         }
 
         function cancelActiveSchedule() {
@@ -4790,7 +5001,7 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
             const subtitle = btn.querySelector("#genius-schedule-save-subtitle");
 
             if (activeSchedule) {
-                const diffMs = activeSchedule.targetEpochMs - Date.now();
+                const diffMs = (activeSchedule.effectiveClientEpoch || activeSchedule.targetEpochMs) - Date.now();
                 if (diffMs <= 0 || activeSchedule.executing) {
                     btn.childNodes[0].textContent = "Saving... ";
                     if (subtitle) subtitle.textContent = "Dispatching mutation";
@@ -4809,12 +5020,12 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
             }
         }
 
-        async function executeScheduledSave(targetEpochMs, currentSchedule) {
+        async function executeScheduledSave(targetEpochMs, currentSchedule, calibrationInfo) {
             currentSchedule.executing = true;
             updateButtonState();
 
             try {
-                // 1. Fetch latest concurrency metadata from Genius API right before dispatch
+                // 1. Fetch latest concurrency metadata from Genius API
                 const metaRes = await fetch(`https://genius.com/api/songs/${songId}?text_format=html`, { credentials: "include" });
                 if (!metaRes.ok) throw new Error(`Failed to refresh concurrency metadata: HTTP ${metaRes.status}`);
                 const metaJson = await metaRes.json();
@@ -4846,11 +5057,13 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                     }
                 };
 
-                // 5. Ultra-precise dispatch loop: wait until targetEpochMs precisely
-                while (Date.now() < targetEpochMs) {
+                // 5. High-precision sub-millisecond dispatch loop
+                const effectiveClientEpoch = currentSchedule.effectiveClientEpoch || targetEpochMs;
+                while (Date.now() < effectiveClientEpoch) {
                     // tight spin wait
                 }
 
+                const clientSendEpoch = Date.now();
                 const res = await fetch(`https://genius.com/api/songs/${songId}/lyrics`, {
                     method: "PUT",
                     headers: {
@@ -4861,20 +5074,52 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                     body: JSON.stringify(payload)
                 });
 
+                const clientReceiveEpoch = Date.now();
+                const rtt = clientReceiveEpoch - clientSendEpoch;
+                const serverDateHeader = res.headers.get("date");
+                let serverResponseEpoch = serverDateHeader ? Date.parse(serverDateHeader) : null;
+
                 if (!res.ok) {
                     const errText = await res.text();
                     throw new Error(`HTTP ${res.status}: ${errText}`);
                 }
 
                 const data = await res.json();
-                console.log("[Scheduled Save Success] Lyrics updated at:", new Date().toISOString(), data);
-                showToast(`✓ Lyrics successfully saved at ${new Date().toLocaleTimeString()}!`);
+                const estimatedArrivalEpoch = clientSendEpoch + Math.round(rtt / 2) + (calibrationInfo?.clockOffset || 0);
+                const estimatedDeltaMs = estimatedArrivalEpoch - targetEpochMs;
+
+                // Record telemetry feedback
+                GeniusScheduledSaveTelemetry.recordDispatchFeedback({
+                    targetEpochMs,
+                    clientSendEpoch,
+                    clientReceiveEpoch,
+                    rtt,
+                    serverDateHeader,
+                    serverResponseEpoch,
+                    estimatedArrivalEpoch,
+                    estimatedDeltaMs,
+                    clockOffsetUsed: calibrationInfo?.clockOffset || 0,
+                    latencyOffsetUsed: calibrationInfo?.oneWayLatency || 0,
+                    manualOffsetUsed: calibrationInfo?.manualOffsetMs || 0,
+                    timestamp: Date.now()
+                });
+
+                console.log("[Scheduled Save Success] Lyrics updated at:", new Date().toISOString(), {
+                    targetEpochMs,
+                    clientSendEpoch,
+                    rtt,
+                    estimatedDeltaMs,
+                    data
+                });
+
+                const sign = estimatedDeltaMs >= 0 ? "+" : "";
+                showToast(`✓ Lyrics saved! Send RTT: ${rtt}ms (Arrival diff: ${sign}${estimatedDeltaMs}ms vs target)`);
 
                 const btn = document.getElementById("genius-schedule-save-button");
                 if (btn) {
                     btn.childNodes[0].textContent = "Saved! ";
                     const subtitle = btn.querySelector("#genius-schedule-save-subtitle");
-                    if (subtitle) subtitle.textContent = "Success (200 OK)";
+                    if (subtitle) subtitle.textContent = `Success (${sign}${estimatedDeltaMs}ms diff)`;
                     setTimeout(() => {
                         cancelActiveSchedule();
                     }, 4000);
@@ -4886,11 +5131,35 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
             }
         }
 
-        function scheduleSave(targetEpochMs) {
+        async function scheduleSave(targetEpochMs) {
             cancelActiveSchedule();
+
+            const cfg = await GeniusScheduledSaveTelemetry.getConfig();
+            const telemetryData = await GeniusScheduledSaveTelemetry.getTelemetry();
+            const cal = telemetryData.latestCalibration || { clockOffset: 0, oneWayLatency: 0 };
+
+            let effectiveClientEpoch = targetEpochMs;
+            let clockOffset = 0;
+            let oneWayLatency = 0;
+            const manualOffsetMs = cfg.manualOffsetMs || 0;
+
+            if (cfg.fixLatency) {
+                clockOffset = cal.clockOffset || 0;
+                oneWayLatency = cal.oneWayLatency || 0;
+                effectiveClientEpoch = targetEpochMs - clockOffset - oneWayLatency + manualOffsetMs;
+            }
+
+            const calibrationInfo = {
+                fixLatency: cfg.fixLatency,
+                clockOffset,
+                oneWayLatency,
+                manualOffsetMs
+            };
 
             const scheduleObj = {
                 targetEpochMs,
+                effectiveClientEpoch,
+                calibrationInfo,
                 timerId: null,
                 countdownInterval: null,
                 cancelled: false,
@@ -4903,26 +5172,335 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                 updateButtonState();
             }, 500);
 
+            let preloaded = false;
             function armTimer() {
                 if (scheduleObj.cancelled) return;
-                const remaining = targetEpochMs - Date.now();
+                const remaining = effectiveClientEpoch - Date.now();
 
                 if (remaining <= 0) {
-                    executeScheduledSave(targetEpochMs, scheduleObj);
+                    executeScheduledSave(targetEpochMs, scheduleObj, calibrationInfo);
                     return;
                 }
 
+                if (remaining <= 2500 && !preloaded) {
+                    preloaded = true;
+                    fetch(`https://genius.com/api/songs/${songId}?text_format=plain`, { method: "HEAD", credentials: "include" }).catch(() => {});
+                    ensureCsrfToken().catch(() => {});
+                }
+
                 if (remaining > 1000) {
-                    scheduleObj.timerId = setTimeout(armTimer, remaining - 500);
-                } else if (remaining > 30) {
+                    scheduleObj.timerId = setTimeout(armTimer, Math.min(remaining - 500, 1000));
+                } else if (remaining > 35) {
                     scheduleObj.timerId = setTimeout(armTimer, remaining - 25);
                 } else {
-                    executeScheduledSave(targetEpochMs, scheduleObj);
+                    executeScheduledSave(targetEpochMs, scheduleObj, calibrationInfo);
                 }
             }
 
             armTimer();
             updateButtonState();
+        }
+
+        async function openFixLatencyModal() {
+            const existingModal = document.getElementById("genius-fix-latency-modal-overlay");
+            if (existingModal) existingModal.remove();
+
+            const overlay = document.createElement("div");
+            overlay.id = "genius-fix-latency-modal-overlay";
+            Object.assign(overlay.style, {
+                position: "fixed",
+                top: "0",
+                left: "0",
+                width: "100%",
+                height: "100%",
+                backgroundColor: "rgba(0, 0, 0, 0.75)",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: "1000005",
+                fontFamily: "Programme, Arial, sans-serif"
+            });
+
+            const modal = document.createElement("div");
+            Object.assign(modal.style, {
+                backgroundColor: "#fff",
+                borderRadius: "12px",
+                padding: "1.5rem",
+                width: "520px",
+                maxWidth: "94vw",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "1rem",
+                color: "#111"
+            });
+
+            const header = document.createElement("div");
+            Object.assign(header.style, {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid #e5e7eb",
+                paddingBottom: "0.75rem"
+            });
+
+            const title = document.createElement("h2");
+            title.textContent = "Fix Latency & Clock Calibration";
+            Object.assign(title.style, {
+                margin: "0",
+                fontSize: "1.2rem",
+                fontWeight: "700"
+            });
+
+            const closeX = document.createElement("button");
+            closeX.innerHTML = "&times;";
+            closeX.type = "button";
+            Object.assign(closeX.style, {
+                background: "none",
+                border: "none",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+                color: "#6b7280"
+            });
+            closeX.onclick = () => overlay.remove();
+
+            header.append(title, closeX);
+            modal.appendChild(header);
+
+            const intro = document.createElement("p");
+            intro.innerHTML = "Sub-second synchronization calibrates local device clock drift against the <b>Genius API Server</b> and <b>WorldTime UTC</b>, measures network roundtrip latency, and compensates transmission time so your lyric save arrives at the exact millisecond.";
+            Object.assign(intro.style, {
+                fontSize: "0.85rem",
+                color: "#4b5563",
+                margin: "0",
+                lineHeight: "1.4"
+            });
+            modal.appendChild(intro);
+
+            const config = await GeniusScheduledSaveTelemetry.getConfig();
+            const telemetry = await GeniusScheduledSaveTelemetry.getTelemetry();
+
+            const settingsCard = document.createElement("div");
+            Object.assign(settingsCard.style, {
+                backgroundColor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                padding: "12px 14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px"
+            });
+
+            const toggleRow = document.createElement("div");
+            Object.assign(toggleRow.style, {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+            });
+            const toggleLabel = document.createElement("span");
+            toggleLabel.innerHTML = '<b>Enable Latency & Clock Correction</b><br><small style="color:#6b7280;">Auto-adjusts send time using latency and server clock offset</small>';
+            toggleLabel.style.fontSize = "0.85rem";
+
+            const toggleInput = document.createElement("input");
+            toggleInput.type = "checkbox";
+            toggleInput.checked = config.fixLatency;
+            toggleInput.style.transform = "scale(1.2)";
+            toggleInput.style.cursor = "pointer";
+            toggleRow.append(toggleLabel, toggleInput);
+
+            const manualRow = document.createElement("div");
+            Object.assign(manualRow.style, {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderTop: "1px solid #e5e7eb",
+                paddingTop: "8px"
+            });
+            const manualLabel = document.createElement("span");
+            manualLabel.innerHTML = '<b>Manual Fine-Tune Offset (ms)</b><br><small style="color:#6b7280;">Negative = fire earlier; Positive = fire later</small>';
+            manualLabel.style.fontSize = "0.85rem";
+
+            const manualInput = document.createElement("input");
+            manualInput.type = "number";
+            manualInput.step = "5";
+            manualInput.value = config.manualOffsetMs || 0;
+            Object.assign(manualInput.style, {
+                width: "90px",
+                padding: "4px 8px",
+                borderRadius: "6px",
+                border: "1px solid #d1d5db",
+                fontSize: "0.85rem",
+                textAlign: "right"
+            });
+            manualRow.append(manualLabel, manualInput);
+            settingsCard.append(toggleRow, manualRow);
+            modal.appendChild(settingsCard);
+
+            const resultsCard = document.createElement("div");
+            Object.assign(resultsCard.style, {
+                backgroundColor: "#f0f7ff",
+                border: "1px solid #bae0ff",
+                borderRadius: "8px",
+                padding: "12px 14px",
+                fontSize: "0.85rem",
+                color: "#1e3a8a",
+                lineHeight: "1.5"
+            });
+
+            function renderResults(cal) {
+                if (!cal) {
+                    resultsCard.innerHTML = "<em>No telemetry calibration recorded yet. Click 'Run Calibration Test' below to benchmark your connection.</em>";
+                    return;
+                }
+                const offsetSign = cal.clockOffset >= 0 ? "+" : "";
+                resultsCard.innerHTML = `
+                    <div style="font-weight: 700; margin-bottom: 6px; color: #0050b3;">Current Telemetry Calibration:</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                        <div>🕒 <b>Clock Offset:</b> ${offsetSign}${cal.clockOffset} ms</div>
+                        <div>⚡ <b>Round-Trip Latency:</b> ${cal.medianRtt || cal.minRtt || 0} ms</div>
+                        <div>🚀 <b>Estimated 1-way Lag:</b> ${cal.oneWayLatency || 0} ms</div>
+                        <div>🌐 <b>Genius Speed:</b> ${cal.speedKbps ? `${cal.speedKbps} KB/s` : "N/A"}</div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #555; margin-top: 6px;">
+                        Last updated: ${new Date(cal.timestamp).toLocaleTimeString()} (${cal.samplesCount || 1} samples tested)
+                    </div>
+                `;
+            }
+            renderResults(telemetry.latestCalibration);
+            modal.appendChild(resultsCard);
+
+            const historyTitle = document.createElement("div");
+            historyTitle.innerHTML = "<b>Recent Scheduled Save Telemetry Feedback:</b>";
+            historyTitle.style.fontSize = "0.85rem";
+            modal.appendChild(historyTitle);
+
+            const historyContainer = document.createElement("div");
+            Object.assign(historyContainer.style, {
+                maxHeight: "120px",
+                overflowY: "auto",
+                border: "1px solid #e5e7eb",
+                borderRadius: "6px",
+                padding: "6px 8px",
+                fontSize: "0.75rem",
+                backgroundColor: "#fafafa"
+            });
+
+            function renderHistory(dispatches) {
+                if (!dispatches || dispatches.length === 0) {
+                    historyContainer.innerHTML = '<div style="color:#888;">No dispatches logged yet.</div>';
+                    return;
+                }
+                let tableHtml = '<table style="width:100%; border-collapse:collapse;">';
+                tableHtml += '<tr style="border-bottom:1px solid #ccc; text-align:left;"><th>Time</th><th>Target</th><th>RTT</th><th>Arrival Error</th></tr>';
+                dispatches.slice(0, 5).forEach(d => {
+                    const diffSign = d.estimatedDeltaMs >= 0 ? "+" : "";
+                    const diffColor = Math.abs(d.estimatedDeltaMs) < 80 ? "#057a55" : (Math.abs(d.estimatedDeltaMs) < 250 ? "#d97706" : "#e02424");
+                    tableHtml += `<tr>
+                        <td>${new Date(d.timestamp).toLocaleTimeString()}</td>
+                        <td>.${new Date(d.targetEpochMs).getMilliseconds()}ms</td>
+                        <td>${d.rtt}ms</td>
+                        <td style="color:${diffColor}; font-weight:bold;">${diffSign}${d.estimatedDeltaMs}ms</td>
+                    </tr>`;
+                });
+                tableHtml += "</table>";
+                historyContainer.innerHTML = tableHtml;
+            }
+            renderHistory(telemetry.recentDispatches);
+            modal.appendChild(historyContainer);
+
+            const statusText = document.createElement("div");
+            statusText.style.fontSize = "0.8rem";
+            statusText.style.color = "#4b5563";
+            statusText.style.minHeight = "18px";
+            modal.appendChild(statusText);
+
+            const actionsRow = document.createElement("div");
+            Object.assign(actionsRow.style, {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: "0.5rem"
+            });
+
+            const calibrateBtn = document.createElement("button");
+            calibrateBtn.type = "button";
+            calibrateBtn.textContent = "Run Calibration Test";
+            Object.assign(calibrateBtn.style, {
+                padding: "0.5rem 1rem",
+                backgroundColor: "#f3f4f6",
+                color: "#1f2937",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                fontWeight: "600",
+                cursor: "pointer"
+            });
+
+            calibrateBtn.onclick = async () => {
+                calibrateBtn.disabled = true;
+                calibrateBtn.style.opacity = "0.6";
+                try {
+                    const newCal = await GeniusScheduledSaveTelemetry.runCalibrationSuite(songId, (msg) => {
+                        statusText.textContent = msg;
+                    });
+                    statusText.textContent = "✓ Calibration test complete!";
+                    renderResults(newCal);
+                } catch (e) {
+                    statusText.textContent = `✕ Calibration failed: ${e.message}`;
+                } finally {
+                    calibrateBtn.disabled = false;
+                    calibrateBtn.style.opacity = "1";
+                }
+            };
+
+            const rightBtns = document.createElement("div");
+            rightBtns.style.display = "flex";
+            rightBtns.style.gap = "8px";
+
+            const cancelBtn = document.createElement("button");
+            cancelBtn.textContent = "Close";
+            cancelBtn.type = "button";
+            Object.assign(cancelBtn.style, {
+                padding: "0.5rem 1rem",
+                backgroundColor: "#f3f4f6",
+                color: "#374151",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                fontWeight: "600",
+                cursor: "pointer"
+            });
+            cancelBtn.onclick = () => overlay.remove();
+
+            const saveBtn = document.createElement("button");
+            saveBtn.textContent = "Save Configuration";
+            saveBtn.type = "button";
+            Object.assign(saveBtn.style, {
+                padding: "0.5rem 1.25rem",
+                backgroundColor: "#1877f2",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontWeight: "700",
+                cursor: "pointer"
+            });
+            saveBtn.onclick = async () => {
+                const fixLatency = toggleInput.checked;
+                const manualOffsetMs = parseInt(manualInput.value || "0", 10) || 0;
+                await GeniusScheduledSaveTelemetry.saveConfig({ fixLatency, manualOffsetMs });
+                overlay.remove();
+                showToast("Latency settings saved successfully!");
+            };
+
+            rightBtns.append(cancelBtn, saveBtn);
+            actionsRow.append(calibrateBtn, rightBtns);
+            modal.appendChild(actionsRow);
+
+            overlay.appendChild(modal);
+            overlay.onclick = (e) => {
+                if (e.target === overlay) overlay.remove();
+            };
+            document.body.appendChild(overlay);
         }
 
         function openScheduleModal() {
@@ -5007,7 +5585,8 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                         <span style="font-size: 1.15rem; font-weight: bold; color: #1877f2;">
                             ${targetDate.toLocaleString()} .${targetDate.getMilliseconds().toString().padStart(3, "0")}
                         </span><br>
-                        <span style="font-size: 0.85rem; color: #6b7280;">Epoch: ${activeSchedule.targetEpochMs} ms</span>
+                        <span style="font-size: 0.85rem; color: #6b7280;">Target Epoch: ${activeSchedule.targetEpochMs} ms</span>
+                        ${activeSchedule.effectiveClientEpoch ? `<br><span style="font-size: 0.8rem; color: #057a55;">(Auto-calibrated dispatch epoch: ${activeSchedule.effectiveClientEpoch} ms)</span>` : ""}
                     </div>
                 `;
 
@@ -5028,7 +5607,7 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                         clearInterval(modalInterval);
                         return;
                     }
-                    const diffMs = activeSchedule.targetEpochMs - Date.now();
+                    const diffMs = (activeSchedule.effectiveClientEpoch || activeSchedule.targetEpochMs) - Date.now();
                     if (diffMs <= 0) {
                         countdownBox.textContent = "Executing scheduled save...";
                     } else {
@@ -5040,10 +5619,29 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                 const btnRow = document.createElement("div");
                 Object.assign(btnRow.style, {
                     display: "flex",
-                    justifyContent: "flex-end",
-                    gap: "0.5rem",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     marginTop: "0.5rem"
                 });
+
+                const fixLatencyLink = document.createElement("button");
+                fixLatencyLink.textContent = "Fix Latency / Telemetry";
+                fixLatencyLink.type = "button";
+                Object.assign(fixLatencyLink.style, {
+                    padding: "0.4rem 0.8rem",
+                    backgroundColor: "#eef2ff",
+                    color: "#3730a3",
+                    border: "1px solid #c7d2fe",
+                    borderRadius: "6px",
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    cursor: "pointer"
+                });
+                fixLatencyLink.onclick = () => openFixLatencyModal();
+
+                const rightBtns = document.createElement("div");
+                rightBtns.style.display = "flex";
+                rightBtns.style.gap = "0.5rem";
 
                 const cancelBtn = document.createElement("button");
                 cancelBtn.textContent = "Cancel Schedule";
@@ -5083,7 +5681,8 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                     openScheduleModal();
                 };
 
-                btnRow.append(cancelBtn, rescheduleBtn);
+                rightBtns.append(cancelBtn, rescheduleBtn);
+                btnRow.append(fixLatencyLink, rightBtns);
                 activeContainer.append(infoText, countdownBox, btnRow);
                 modal.appendChild(activeContainer);
             } else {
@@ -5311,10 +5910,32 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                 const btnRow = document.createElement("div");
                 Object.assign(btnRow.style, {
                     display: "flex",
-                    justifyContent: "flex-end",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     gap: "0.5rem",
                     marginTop: "0.5rem"
                 });
+
+                const fixLatencyBtn = document.createElement("button");
+                fixLatencyBtn.textContent = "Fix Latency / Telemetry";
+                fixLatencyBtn.type = "button";
+                Object.assign(fixLatencyBtn.style, {
+                    padding: "0.5rem 0.85rem",
+                    backgroundColor: "#eef2ff",
+                    color: "#3730a3",
+                    border: "1px solid #c7d2fe",
+                    borderRadius: "6px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    fontSize: "0.85rem"
+                });
+                fixLatencyBtn.onclick = () => {
+                    openFixLatencyModal();
+                };
+
+                const rightBtns = document.createElement("div");
+                rightBtns.style.display = "flex";
+                rightBtns.style.gap = "0.5rem";
 
                 const cancelBtn = document.createElement("button");
                 cancelBtn.textContent = "Cancel";
@@ -5352,7 +5973,8 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
                     showToast(`Scheduled save armed for ${new Date(targetEpoch).toLocaleTimeString()}!`);
                 };
 
-                btnRow.append(cancelBtn, scheduleBtn);
+                rightBtns.append(cancelBtn, scheduleBtn);
+                btnRow.append(fixLatencyBtn, rightBtns);
                 modal.appendChild(btnRow);
             }
 
@@ -5431,6 +6053,7 @@ function openRecreateModal(songId, songTitle, primaryArtists, featuredArtists, w
         observer.observe(document.body, { childList: true, subtree: true });
         injectScheduleButton();
     }
+
 
     function lyricsCleanupLogic(cleanupType) {
         const { lyricsTextareaInputTextarea } = getDomElements();
